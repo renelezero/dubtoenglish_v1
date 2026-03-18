@@ -10,6 +10,12 @@ logger = logging.getLogger(__name__)
 RSS_FEEDS = [
     {"id": "aljazeera", "name": "Al Jazeera", "url": "https://www.aljazeera.net/rss"},
     {"id": "alarabiya", "name": "Al Arabiya", "url": "https://www.alarabiya.net/feed/rss2"},
+    {"id": "skynews_ar", "name": "Sky News Arabia", "url": "https://www.skynewsarabia.com/web/rss"},
+    {"id": "bbc_arabic", "name": "BBC Arabic", "url": "https://feeds.bbci.co.uk/arabic/rss.xml"},
+    {"id": "france24_ar", "name": "France 24 Arabic", "url": "https://www.france24.com/ar/rss"},
+    {"id": "rt_arabic", "name": "RT Arabic", "url": "https://arabic.rt.com/rss/"},
+    {"id": "newarab", "name": "The New Arab", "url": "https://www.newarab.com/rss"},
+    {"id": "alsharq", "name": "Al Sharq", "url": "https://al-sharq.com/rss/latestNews"},
 ]
 
 GDELT_GEO_URL = (
