@@ -380,5 +380,24 @@
     });
   }
 
+  // Load history via HTTP as backup (WebSocket also sends it, but this is faster)
+  async function loadHistory() {
+    try {
+      const res = await fetch("/api/events?hours=6");
+      const data = await res.json();
+      if (data.events && data.events.length > 0) {
+        feedContent.innerHTML = "";
+        feedItems = 0;
+        for (const ev of data.events) {
+          addFeedItem(ev, false);
+          addMapPin(ev);
+        }
+      }
+    } catch (err) {
+      console.error("History load failed:", err);
+    }
+  }
+
+  loadHistory();
   connect();
 })();

@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 
 from maritime.db import save_position, save_anomaly
+from maritime.vessel_lookup import enrich_vessel, infer_vessel_type, mmsi_to_country_code
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +57,14 @@ def update_vessel(data: dict) -> dict:
         prev_lng = existing.get("lng")
         prev_time = existing.get("last_seen")
 
+        name = data.get("name") or existing.get("name", "")
+        raw_type = data.get("ship_type") or existing.get("ship_type", "other")
+        ship_type = infer_vessel_type(name, raw_type)
+        flag = data.get("flag") or existing.get("flag", "") or mmsi_to_country_code(mmsi)
+
         entry = {
             "mmsi": mmsi,
-            "name": data.get("name") or existing.get("name", ""),
+            "name": name,
             "lat": data.get("lat"),
             "lng": data.get("lng"),
             "speed": data.get("speed"),
@@ -66,8 +72,8 @@ def update_vessel(data: dict) -> dict:
             "heading": data.get("heading"),
             "nav_status": data.get("nav_status"),
             "ship_type_code": data.get("ship_type_code") or existing.get("ship_type_code", 0),
-            "ship_type": data.get("ship_type") or existing.get("ship_type", "other"),
-            "flag": data.get("flag") or existing.get("flag", ""),
+            "ship_type": ship_type,
+            "flag": flag,
             "destination": existing.get("destination", ""),
             "length": existing.get("length", 0),
             "width": existing.get("width", 0),
@@ -78,6 +84,7 @@ def update_vessel(data: dict) -> dict:
             "position_count": existing.get("position_count", 0) + 1,
         }
 
+        enrich_vessel(entry)
         _vessels[mmsi] = entry
 
         _position_log.append({
@@ -160,10 +167,14 @@ def _serialize_vessel(v: dict) -> dict:
         "ship_type": v.get("ship_type", "other"),
         "ship_type_code": v.get("ship_type_code", 0),
         "flag": v.get("flag", ""),
+        "flag_country": v.get("flag_country", ""),
+        "flag_of_convenience": v.get("flag_of_convenience", False),
+        "sanctioned_flag": v.get("sanctioned_flag", False),
         "destination": v.get("destination", ""),
         "length": v.get("length", 0),
         "width": v.get("width", 0),
         "imo": v.get("imo"),
+        "callsign": v.get("callsign", ""),
         "last_seen": v["last_seen"].isoformat() if hasattr(v.get("last_seen", ""), "isoformat") else "",
         "position_count": v.get("position_count", 0),
     }

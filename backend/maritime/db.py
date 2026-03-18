@@ -12,6 +12,8 @@ import threading
 from datetime import datetime, timezone
 from typing import Optional, List
 
+from maritime.vessel_lookup import mmsi_to_country_code, mmsi_to_country_name, enrich_vessel
+
 logger = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "maritime.db")
@@ -233,6 +235,16 @@ def get_vessel_history(mmsi: int, hours: Optional[float] = None, limit: int = 50
     return [dict(r) for r in rows]
 
 
+def _enrich_db_vessel(row: dict) -> dict:
+    """Add country info to a vessel row from the DB."""
+    v = dict(row)
+    mmsi = v.get("mmsi", 0)
+    if not v.get("flag") or v["flag"] == "?":
+        v["flag"] = mmsi_to_country_code(mmsi)
+    v["flag_country"] = mmsi_to_country_name(mmsi)
+    return enrich_vessel(v)
+
+
 def get_all_vessels_db(active_hours: Optional[float] = None) -> List[dict]:
     """Get all known vessels, optionally filtered by recent activity."""
     conn = _get_conn()
@@ -244,13 +256,13 @@ def get_all_vessels_db(active_hours: Optional[float] = None) -> List[dict]:
         """, (f"-{int(active_hours * 3600)} seconds",)).fetchall()
     else:
         rows = conn.execute("SELECT * FROM vessels ORDER BY last_seen DESC").fetchall()
-    return [dict(r) for r in rows]
+    return [_enrich_db_vessel(r) for r in rows]
 
 
 def get_vessel_db(mmsi: int) -> Optional[dict]:
     conn = _get_conn()
     row = conn.execute("SELECT * FROM vessels WHERE mmsi = ?", (mmsi,)).fetchone()
-    return dict(row) if row else None
+    return _enrich_db_vessel(row) if row else None
 
 
 def get_traffic_summary(hours: float = 1.0) -> dict:
@@ -314,4 +326,4 @@ def search_vessels(query: str, limit: int = 50) -> List[dict]:
               OR destination LIKE ? OR callsign LIKE ?
         ORDER BY last_seen DESC LIMIT ?
     """, (q, q, q, q, q, limit)).fetchall()
-    return [dict(r) for r in rows]
+    return [_enrich_db_vessel(r) for r in rows]
