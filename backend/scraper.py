@@ -47,31 +47,44 @@ def _is_new(item_id: str) -> bool:
     return True
 
 
+def _fetch_single_feed(feed_cfg: dict) -> list[dict]:
+    """Fetch one RSS feed with a hard timeout."""
+    items: list[dict] = []
+    try:
+        with httpx.Client(timeout=10, follow_redirects=True) as client:
+            resp = client.get(feed_cfg["url"], headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            parsed = feedparser.parse(resp.text)
+
+        for entry in parsed.entries[:15]:
+            url = getattr(entry, "link", "") or ""
+            title = getattr(entry, "title", "") or ""
+            iid = _item_id(feed_cfg["id"], url, title)
+            if not _is_new(iid):
+                continue
+            summary_ar = getattr(entry, "summary", "") or ""
+            items.append({
+                "id": iid,
+                "source_id": feed_cfg["id"],
+                "source_name": feed_cfg["name"],
+                "headline_ar": title,
+                "body_ar": summary_ar[:800],
+                "url": url,
+                "origin": "rss",
+            })
+        if items:
+            logger.info("RSS [%s]: %d new items", feed_cfg["name"], len(items))
+    except Exception:
+        logger.warning("RSS [%s] failed (timeout or error)", feed_cfg["name"])
+    return items
+
+
 def fetch_rss_feeds() -> list[dict]:
     """Fetch all RSS feeds and return new (unseen) items."""
-    items: list[dict] = []
+    all_items: list[dict] = []
     for feed_cfg in RSS_FEEDS:
-        try:
-            parsed = feedparser.parse(feed_cfg["url"])
-            for entry in parsed.entries[:15]:
-                url = getattr(entry, "link", "") or ""
-                title = getattr(entry, "title", "") or ""
-                iid = _item_id(feed_cfg["id"], url, title)
-                if not _is_new(iid):
-                    continue
-                summary_ar = getattr(entry, "summary", "") or ""
-                items.append({
-                    "id": iid,
-                    "source_id": feed_cfg["id"],
-                    "source_name": feed_cfg["name"],
-                    "headline_ar": title,
-                    "body_ar": summary_ar[:800],
-                    "url": url,
-                    "origin": "rss",
-                })
-        except Exception:
-            logger.exception("RSS fetch failed for %s", feed_cfg["name"])
-    return items
+        all_items.extend(_fetch_single_feed(feed_cfg))
+    return all_items
 
 
 async def fetch_gdelt_events() -> list[dict]:

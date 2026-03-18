@@ -25,6 +25,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from maritime.ais_client import AISClient
+from maritime.db import (
+    init_db, get_vessel_history, get_all_vessels_db, get_vessel_db,
+    get_traffic_summary, get_db_stats, search_vessels,
+)
 from maritime.vessel_store import (
     update_vessel, get_active_vessels, get_vessel, get_vessel_track,
     get_maritime_stats, get_anomalies, get_tanker_flow,
@@ -192,13 +196,14 @@ async def run_port_scrape_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_db()
     tasks = [
         asyncio.create_task(run_ais_stream()),
         asyncio.create_task(run_maritime_news_loop()),
         asyncio.create_task(run_analysis_loop()),
         asyncio.create_task(run_port_scrape_loop()),
     ]
-    logger.info("Maritime intelligence server started (4 background tasks)")
+    logger.info("Maritime intelligence server started (4 background tasks, SQLite persistence ON)")
     yield
     ais.stop()
     for t in tasks:
@@ -272,6 +277,44 @@ async def api_port_vessels(port_id: str):
 @app.get("/api/maritime/ais_status")
 async def api_ais_status():
     return {"ais": ais.stats}
+
+
+# ---- Historical / Database endpoints ----
+
+@app.get("/api/maritime/history/vessel/{mmsi}")
+async def api_vessel_history(mmsi: int, hours: float = Query(default=None)):
+    """Full position history for a vessel from SQLite."""
+    history = await asyncio.to_thread(get_vessel_history, mmsi, hours)
+    vessel = await asyncio.to_thread(get_vessel_db, mmsi)
+    return {"vessel": vessel, "positions": history, "count": len(history)}
+
+
+@app.get("/api/maritime/history/all")
+async def api_all_vessels_history(hours: float = Query(default=None)):
+    """All vessels ever seen, optionally filtered by recent activity."""
+    vessels = await asyncio.to_thread(get_all_vessels_db, hours)
+    return {"vessels": vessels, "count": len(vessels)}
+
+
+@app.get("/api/maritime/history/traffic")
+async def api_traffic_history(hours: float = Query(default=1.0)):
+    """Traffic summary from database."""
+    summary = await asyncio.to_thread(get_traffic_summary, hours)
+    return summary
+
+
+@app.get("/api/maritime/history/search")
+async def api_search_vessels(q: str = Query(...), limit: int = Query(default=50)):
+    """Search vessels by name, MMSI, flag, destination, or callsign."""
+    results = await asyncio.to_thread(search_vessels, q, limit)
+    return {"results": results, "count": len(results)}
+
+
+@app.get("/api/maritime/db_stats")
+async def api_db_stats():
+    """Database size and record counts."""
+    stats = await asyncio.to_thread(get_db_stats)
+    return stats
 
 
 @app.websocket("/ws/maritime")

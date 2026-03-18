@@ -1,26 +1,37 @@
 """
-In-memory vessel position store with tracking and analytics.
+In-memory vessel position store with tracking, analytics, and SQLite persistence.
 
-Mirrors the pattern in store.py — thread-safe deques with stat aggregation.
-Maintains both latest positions and historical tracks per vessel.
+In-memory for speed, SQLite for permanent history.
+Every position update is saved to disk with a timestamp.
 """
 
+import logging
 import threading
 from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 
+from maritime.db import save_position, save_anomaly
+
+logger = logging.getLogger(__name__)
+
 _lock = threading.Lock()
 
 _vessels: Dict[int, dict] = {}          # MMSI -> latest vessel state
-_position_log: deque = deque(maxlen=50_000)
-_static_data: Dict[int, dict] = {}     # MMSI -> static info (name, type, destination, dimensions)
+_position_log: deque = deque(maxlen=100_000)
+_static_data: Dict[int, dict] = {}     # MMSI -> static info
 _anomalies: deque = deque(maxlen=1_000)
 
 
 def update_vessel(data: dict) -> dict:
-    """Update vessel position or static data. Returns the merged vessel state."""
+    """Update vessel position or static data. Persists to SQLite. Returns merged state."""
     mmsi = data["mmsi"]
+
+    # Persist every update to SQLite (runs in same thread, WAL mode keeps it fast)
+    try:
+        save_position(data)
+    except Exception:
+        logger.exception("DB save failed for MMSI %s", mmsi)
 
     with _lock:
         if data.get("is_static"):
@@ -82,6 +93,10 @@ def update_vessel(data: dict) -> dict:
         anomaly = _detect_anomaly(entry, prev_lat, prev_lng, prev_time)
         if anomaly:
             _anomalies.append(anomaly)
+            try:
+                save_anomaly(anomaly)
+            except Exception:
+                logger.exception("DB anomaly save failed")
 
     return _serialize_vessel(entry)
 
