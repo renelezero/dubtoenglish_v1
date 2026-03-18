@@ -315,6 +315,12 @@
           }
           break;
 
+        case "translation_audio":
+          if (msg.audio && activeListenStream === msg.stream_id) {
+            enqueueAudio(msg.audio);
+          }
+          break;
+
         case "summary_entry":
           if (msg.entry) {
             appendSummaryEntry(msg.entry);

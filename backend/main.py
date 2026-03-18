@@ -77,6 +77,35 @@ hub = Broadcaster()
 
 # ---- Background stream pipeline ----
 
+CHUNK_DURATION = 3.0
+
+
+def _latest_chunk_index(chunk_dir: str) -> int:
+    """Return the highest chunk index present in the output directory."""
+    try:
+        names = [f for f in os.listdir(chunk_dir)
+                 if f.startswith("chunk_") and f.endswith(".wav")]
+        if not names:
+            return -1
+        return max(int(n[6:12]) for n in names)
+    except (OSError, ValueError):
+        return -1
+
+
+async def _tts_and_broadcast(text: str, stream_id: str, stream_name: str):
+    """Generate TTS and broadcast audio in the background."""
+    try:
+        audio_bytes = await synthesize_speech_bytes(text)
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+        await hub.broadcast({
+            "type": "translation_audio",
+            "stream_id": stream_id,
+            "audio": audio_b64,
+        })
+    except Exception:
+        logger.exception("[%s] Background TTS failed", stream_name)
+
+
 async def run_stream_pipeline(stream_cfg: dict):
     """Continuously process a single stream and broadcast results."""
     sid = stream_cfg["id"]
@@ -91,8 +120,17 @@ async def run_stream_pipeline(stream_cfg: dict):
             audio_url = await asyncio.to_thread(extract_audio_url, url)
             await hub.broadcast({"type": "status", "stream_id": sid, "message": "Live"})
 
-            async for chunk_path in capture_audio_chunks(audio_url):
+            async for chunk_path in capture_audio_chunks(audio_url, chunk_duration=CHUNK_DURATION):
                 try:
+                    # Skip stale chunks so latency never grows
+                    chunk_dir = os.path.dirname(chunk_path)
+                    current_idx = int(os.path.basename(chunk_path)[6:12])
+                    latest_idx = _latest_chunk_index(chunk_dir)
+                    if latest_idx - current_idx > 2:
+                        logger.info("[%s] Skipping chunk %d (latest: %d)",
+                                    name, current_idx, latest_idx)
+                        continue
+
                     arabic = await transcribe_audio(chunk_path)
                     if not arabic:
                         continue
@@ -102,21 +140,18 @@ async def run_stream_pipeline(stream_cfg: dict):
                     context = " ".join(recent[-3:])
                     english = await translate_text(arabic, context=context)
 
-                    audio_b64 = None
-                    if english:
-                        try:
-                            audio_bytes = await synthesize_speech_bytes(english)
-                            audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
-                        except Exception:
-                            logger.exception("[%s] TTS failed", name)
-
+                    # Broadcast text immediately — don't wait for TTS
                     await hub.broadcast({
                         "type": "translation",
                         "stream_id": sid,
                         "stream_name": name,
                         "text": english,
-                        "audio": audio_b64,
+                        "audio": None,
                     })
+
+                    # Fire TTS in background so the next chunk can start processing
+                    if english:
+                        asyncio.create_task(_tts_and_broadcast(english, sid, name))
 
                     if arabic and english:
                         await asyncio.to_thread(add_transcript, sid, name, arabic, english)
