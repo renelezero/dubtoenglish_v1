@@ -330,13 +330,8 @@
 
       switch (msg.type) {
         case "history":
-          if (msg.events) {
-            feedContent.innerHTML = "";
-            feedItems = 0;
-            for (const ev of msg.events) {
-              addFeedItem(ev, false);
-              addMapPin(ev);
-            }
+          if (msg.events && !historyLoaded) {
+            loadEvents(msg.events);
           }
           break;
 
@@ -380,18 +375,29 @@
     });
   }
 
-  // Load history via HTTP as backup (WebSocket also sends it, but this is faster)
+  let historyLoaded = false;
+
+  function loadEvents(events) {
+    feedContent.innerHTML = "";
+    feedItems = 0;
+    markers.clearLayers();
+    pinList.length = 0;
+    const sorted = events.slice().sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    for (const ev of sorted) {
+      addFeedItem(ev, false);
+      addMapPin(ev);
+    }
+    historyLoaded = true;
+  }
+
   async function loadHistory() {
     try {
       const res = await fetch("/api/events?hours=6");
       const data = await res.json();
       if (data.events && data.events.length > 0) {
-        feedContent.innerHTML = "";
-        feedItems = 0;
-        for (const ev of data.events) {
-          addFeedItem(ev, false);
-          addMapPin(ev);
-        }
+        loadEvents(data.events);
       }
     } catch (err) {
       console.error("History load failed:", err);
