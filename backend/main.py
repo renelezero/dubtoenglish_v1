@@ -375,6 +375,12 @@ async def get_stats_endpoint(hours: float = Query(default=1.0)):
     return await asyncio.to_thread(get_stats, hours)
 
 
+@app.get("/api/summaries")
+async def get_summaries(hours: float = Query(default=6.0)):
+    entries = await asyncio.to_thread(query_summaries, hours)
+    return {"entries": entries}
+
+
 @app.get("/api/summary")
 async def get_summary_endpoint(window: str = Query(default="1h")):
     hours_map = {"1h": 1.0, "3h": 3.0, "6h": 6.0, "12h": 12.0}

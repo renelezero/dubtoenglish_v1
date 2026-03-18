@@ -402,6 +402,21 @@
     } catch (err) {
       console.error("History load failed:", err);
     }
+    try {
+      const res = await fetch("/api/summaries?hours=6");
+      const data = await res.json();
+      if (data.entries && data.entries.length > 0) {
+        briefingContent.innerHTML = "";
+        const sorted = data.entries.slice().sort((a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        for (const entry of sorted) {
+          addBriefingEntry(entry, false);
+        }
+      }
+    } catch (err) {
+      console.error("Briefing history load failed:", err);
+    }
   }
 
   loadHistory();
