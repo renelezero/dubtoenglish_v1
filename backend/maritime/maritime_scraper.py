@@ -66,7 +66,7 @@ def _is_new(article_id: str) -> bool:
     return True
 
 
-async def scrape_port_vessels(port: dict) -> list[dict]:
+async def scrape_port_vessels(port: dict) -> list:
     """
     Scrape vessel list from a MarineVesselTraffic port page.
     Returns list of vessel dicts with name, type, flag, etc.
@@ -130,7 +130,7 @@ async def scrape_port_vessels(port: dict) -> list[dict]:
     return vessels
 
 
-async def scrape_all_ports() -> dict[str, list[dict]]:
+async def scrape_all_ports() -> dict:
     """Scrape vessel lists from all Hormuz-area ports."""
     results = {}
     for port in HORMUZ_PORTS:
@@ -139,7 +139,7 @@ async def scrape_all_ports() -> dict[str, list[dict]]:
     return results
 
 
-async def fetch_maritime_news() -> list[dict]:
+async def fetch_maritime_news() -> list:
     """Fetch maritime-specific Arabic news from GDELT."""
     items = []
     try:
@@ -176,7 +176,7 @@ async def fetch_maritime_news() -> list[dict]:
     return items
 
 
-def get_port_metadata() -> list[dict]:
+def get_port_metadata() -> list:
     """Return static port metadata for map display."""
     return [
         {

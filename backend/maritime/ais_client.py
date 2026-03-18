@@ -11,6 +11,7 @@ import logging
 import os
 import time
 from datetime import datetime, timezone
+from typing import Optional
 
 import websockets
 
@@ -26,30 +27,32 @@ HORMUZ_BOUNDING_BOXES = [
     [[24.5, 53.5], [27.5, 58.5]],   # wider gulf mouth + Fujairah anchorage
 ]
 
-# AIS ship type codes
-VESSEL_TYPE_MAP = {
-    range(60, 70): "passenger",
-    range(70, 80): "cargo",
-    range(80, 90): "tanker",
-    range(30, 36): "fishing",
-    range(40, 50): "high_speed",
-    range(50, 60): "special",
-    range(36, 38): "sailing",
-}
+# AIS ship type codes — ordered so military check happens before fishing range
+MILITARY_CODES = {35, 55}
+
+VESSEL_TYPE_MAP = [
+    (range(60, 70), "passenger"),
+    (range(70, 80), "cargo"),
+    (range(80, 90), "tanker"),
+    (range(40, 50), "high_speed"),
+    (range(50, 60), "special"),
+    (range(30, 35), "fishing"),
+    (range(36, 38), "sailing"),
+]
 
 def classify_vessel_type(ship_type_code: int) -> str:
-    for type_range, label in VESSEL_TYPE_MAP.items():
+    if ship_type_code in MILITARY_CODES:
+        return "military"
+    for type_range, label in VESSEL_TYPE_MAP:
         if ship_type_code in type_range:
             return label
-    if ship_type_code in (35, 55):
-        return "military"
     return "other"
 
 
 class AISClient:
     """Connects to AISStream.io and yields parsed vessel position updates."""
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("AISSTREAM_API_KEY", "")
         self._running = False
         self._message_count = 0
@@ -76,7 +79,7 @@ class AISClient:
             "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
         })
 
-    def _parse_position_report(self, msg: dict) -> dict | None:
+    def _parse_position_report(self, msg: dict) -> Optional[dict]:
         meta = msg.get("MetaData", {})
         position = msg.get("Message", {}).get("PositionReport", {})
         if not position:
@@ -101,7 +104,7 @@ class AISClient:
             "flag": (meta.get("Flag") or "").strip(),
         }
 
-    def _parse_static_data(self, msg: dict) -> dict | None:
+    def _parse_static_data(self, msg: dict) -> Optional[dict]:
         meta = msg.get("MetaData", {})
         static = msg.get("Message", {}).get("ShipStaticData", {})
         if not static:

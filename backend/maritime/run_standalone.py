@@ -50,7 +50,7 @@ ais = AISClient()
 
 class MaritimeHub:
     def __init__(self):
-        self._clients: set[WebSocket] = set()
+        self._clients = set()
 
     async def connect(self, ws: WebSocket):
         await ws.accept()
@@ -76,9 +76,9 @@ hub = MaritimeHub()
 
 # ---- Background tasks ----
 
-_maritime_news_cache: list[dict] = []
-_latest_analysis: dict | None = None
-_port_data: dict = {}
+_maritime_news_cache = []       # type: list
+_latest_analysis = None         # type: dict or None
+_port_data = {}                 # type: dict
 
 
 async def run_ais_stream():

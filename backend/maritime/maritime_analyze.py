@@ -7,12 +7,13 @@ maritime situational awareness briefings.
 
 import json
 import logging
+from typing import Optional, List
 
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
-_client: AsyncOpenAI | None = None
+_client: Optional[AsyncOpenAI] = None
 
 MARITIME_SYSTEM_PROMPT = """\
 You are a maritime intelligence analyst specializing in the Strait of Hormuz and Persian Gulf.
@@ -66,10 +67,10 @@ def _get_client() -> AsyncOpenAI:
 async def analyze_maritime_situation(
     vessel_stats: dict,
     tanker_flow: dict,
-    anomalies: list[dict],
+    anomalies: List[dict],
     recent_news: str,
     active_vessel_count: int,
-) -> dict | None:
+) -> Optional[dict]:
     """
     Run GPT-4o analysis correlating vessel data with news.
     Returns structured maritime intelligence assessment.
@@ -142,7 +143,7 @@ Rules:
 - Always return valid JSON"""
 
 
-async def analyze_maritime_news(item: dict) -> dict | None:
+async def analyze_maritime_news(item: dict) -> Optional[dict]:
     """Analyze a maritime-specific news item."""
     headline = item.get("headline_ar", "")
     body = item.get("body_ar", "")

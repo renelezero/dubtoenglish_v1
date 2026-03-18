@@ -72,11 +72,15 @@ async def run_rss_loop():
             items = await asyncio.to_thread(fetch_rss_feeds)
             if items:
                 logger.info("RSS: %d new items", len(items))
-                for item in items:
-                    analyzed = await analyze_item(item)
-                    if analyzed:
-                        entry = await asyncio.to_thread(add_event, analyzed)
-                        await hub.broadcast({"type": "event", "event": entry})
+                for item in items[:15]:
+                    try:
+                        analyzed = await analyze_item(item)
+                        if analyzed:
+                            entry = await asyncio.to_thread(add_event, analyzed)
+                            await hub.broadcast({"type": "event", "event": entry})
+                    except Exception:
+                        logger.exception("Analyze failed for item")
+                    await asyncio.sleep(2)
         except Exception:
             logger.exception("RSS loop error")
         elapsed = time.monotonic() - t0

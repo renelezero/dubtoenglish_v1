@@ -8,13 +8,14 @@ Maintains both latest positions and historical tracks per vessel.
 import threading
 from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
+from typing import Optional, List, Dict
 
 _lock = threading.Lock()
 
-_vessels: dict[int, dict] = {}          # MMSI -> latest vessel state
-_position_log: deque[dict] = deque(maxlen=50_000)
-_static_data: dict[int, dict] = {}     # MMSI -> static info (name, type, destination, dimensions)
-_anomalies: deque[dict] = deque(maxlen=1_000)
+_vessels: Dict[int, dict] = {}          # MMSI -> latest vessel state
+_position_log: deque = deque(maxlen=50_000)
+_static_data: Dict[int, dict] = {}     # MMSI -> static info (name, type, destination, dimensions)
+_anomalies: deque = deque(maxlen=1_000)
 
 
 def update_vessel(data: dict) -> dict:
@@ -85,7 +86,7 @@ def update_vessel(data: dict) -> dict:
     return _serialize_vessel(entry)
 
 
-def _detect_anomaly(vessel: dict, prev_lat, prev_lng, prev_time) -> dict | None:
+def _detect_anomaly(vessel: dict, prev_lat, prev_lng, prev_time) -> Optional[dict]:
     """Flag suspicious behavior: AIS gaps, sudden speed changes, loitering."""
     now = datetime.now(timezone.utc)
 
@@ -153,7 +154,7 @@ def _serialize_vessel(v: dict) -> dict:
     }
 
 
-def get_active_vessels(minutes: int = 30) -> list[dict]:
+def get_active_vessels(minutes: int = 30) -> List[dict]:
     """Return vessels seen within the last N minutes."""
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     with _lock:
@@ -163,13 +164,13 @@ def get_active_vessels(minutes: int = 30) -> list[dict]:
         ]
 
 
-def get_vessel(mmsi: int) -> dict | None:
+def get_vessel(mmsi: int) -> Optional[dict]:
     with _lock:
         v = _vessels.get(mmsi)
         return _serialize_vessel(v) if v else None
 
 
-def get_vessel_track(mmsi: int, minutes: int = 60) -> list[dict]:
+def get_vessel_track(mmsi: int, minutes: int = 60) -> List[dict]:
     """Return position history for a specific vessel."""
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     with _lock:
@@ -189,10 +190,10 @@ def get_vessel_track(mmsi: int, minutes: int = 60) -> list[dict]:
 def get_maritime_stats(minutes: int = 30) -> dict:
     """Aggregate stats for active vessels in the strait."""
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
-    types: Counter[str] = Counter()
-    flags: Counter[str] = Counter()
-    destinations: Counter[str] = Counter()
-    speeds: list[float] = []
+    types: Counter = Counter()
+    flags: Counter = Counter()
+    destinations: Counter = Counter()
+    speeds: List[float] = []
     total = 0
     tanker_count = 0
     military_count = 0
@@ -226,7 +227,7 @@ def get_maritime_stats(minutes: int = 30) -> dict:
     }
 
 
-def get_anomalies(minutes: int = 60) -> list[dict]:
+def get_anomalies(minutes: int = 60) -> List[dict]:
     """Return detected anomalies within the time window."""
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     with _lock:
