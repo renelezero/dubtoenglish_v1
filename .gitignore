@@ -5,3 +5,4 @@ __pycache__/
 .DS_Store
 backend/__pycache__/
 .claude/
+firebase-service-account.json

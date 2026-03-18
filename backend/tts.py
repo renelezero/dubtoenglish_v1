@@ -19,6 +19,7 @@ def _get_client() -> AsyncOpenAI:
 async def synthesize_speech(
     text: str,
     voice: str = DEFAULT_VOICE,
+    speed: float = 1.25,
     output_dir: str | None = None,
 ) -> str:
     """
@@ -39,6 +40,7 @@ async def synthesize_speech(
         voice=voice,
         input=text,
         response_format="mp3",
+        speed=speed,
     )
 
     if output_dir is None:
@@ -54,6 +56,7 @@ async def synthesize_speech(
 async def synthesize_speech_bytes(
     text: str,
     voice: str = DEFAULT_VOICE,
+    speed: float = 1.25,
 ) -> bytes:
     """
     Convert English text to speech and return raw MP3 bytes.
@@ -74,6 +77,7 @@ async def synthesize_speech_bytes(
         voice=voice,
         input=text,
         response_format="mp3",
+        speed=speed,
     )
 
     return response.read()

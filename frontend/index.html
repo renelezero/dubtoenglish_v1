@@ -3,116 +3,158 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DubToEnglish — Live Arabic-to-English Dub</title>
+  <title>DubToEnglish — Live Arabic-to-English Intelligence</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
     <h1>Dub<span class="arrow">&rarr;</span>English</h1>
-    <p class="tagline">Live Arabic-to-English AI dubbing &mdash; multiple streams</p>
+    <p class="tagline">Live Arabic-to-English AI dubbing &amp; intelligence monitor</p>
   </header>
 
   <main>
-    <!-- Global controls -->
-    <div class="global-controls">
-      <button id="btnStartAll" class="btn-global">Start All</button>
-      <button id="btnStopAll" class="btn-global btn-danger">Stop All</button>
-      <label class="toggle">
-        <input type="checkbox" id="globalAudio" />
-        <span class="toggle-slider"></span>
-        <span class="toggle-label">Audio (all)</span>
-      </label>
+    <!-- Connection status -->
+    <div class="controls-bar">
+      <div class="connection-status">
+        <div id="connIndicator" class="status-indicator offline">
+          <span class="status-dot"></span>
+          <span id="connText">Connecting...</span>
+        </div>
+      </div>
     </div>
 
-    <!-- Stream 1: Al Arabiya -->
-    <section class="stream-panel" data-stream-id="0" data-url="https://www.youtube.com/watch?v=n7eQejkXbnM">
-      <div class="stream-header">
-        <h2>Al Arabiya Baghdad</h2>
-        <div class="stream-controls">
-          <div class="status-indicator offline">
-            <span class="status-dot"></span>
-            <span class="status-text">Offline</span>
-          </div>
-          <span class="latency-display"></span>
-        </div>
-      </div>
-      <div class="player-area">
-        <div class="video-container">
-          <iframe allowfullscreen allow="autoplay"></iframe>
-        </div>
-        <div class="subtitle-panel">
-          <div class="panel-header">
-            <span class="panel-title">Live Translation</span>
-            <button class="btn-text btn-clear">Clear</button>
-          </div>
-          <div class="subtitle-feed">
-            <div class="empty-state">Waiting to start&hellip;</div>
+    <!-- Two AI log panels -->
+    <div class="summary-grid">
+      <!-- Live Intelligence Feed -->
+      <section class="summary-panel">
+        <div class="summary-header">
+          <h2>Live Intelligence Feed</h2>
+          <div class="summary-header-right">
+            <span id="liveMeta" class="meta">Updates every ~7s</span>
+            <button class="btn-listen" data-stream-id="live-updates" title="Toggle live feed voice">
+              <span class="listen-icon">&#9834;</span> Listen
+            </button>
           </div>
         </div>
-      </div>
-    </section>
+        <div id="liveContent" class="summary-content">
+          <div class="empty-state">Waiting for streams to generate transcripts...</div>
+        </div>
+      </section>
 
-    <!-- Stream 2: Second channel -->
-    <section class="stream-panel" data-stream-id="1" data-url="https://www.youtube.com/watch?v=bNyUyrR0PHo">
-      <div class="stream-header">
-        <h2>Stream 2</h2>
-        <div class="stream-controls">
-          <div class="status-indicator offline">
-            <span class="status-dot"></span>
-            <span class="status-text">Offline</span>
+      <!-- Lookback Briefings -->
+      <section class="summary-panel">
+        <div class="summary-header">
+          <div class="summary-header-left">
+            <h2>Lookback Briefings</h2>
+            <div class="window-tabs">
+              <button class="tab active" data-window="3h">3h</button>
+              <button class="tab" data-window="6h">6h</button>
+              <button class="tab" data-window="12h">12h</button>
+            </div>
           </div>
-          <span class="latency-display"></span>
-        </div>
-      </div>
-      <div class="player-area">
-        <div class="video-container">
-          <iframe allowfullscreen allow="autoplay"></iframe>
-        </div>
-        <div class="subtitle-panel">
-          <div class="panel-header">
-            <span class="panel-title">Live Translation</span>
-            <button class="btn-text btn-clear">Clear</button>
-          </div>
-          <div class="subtitle-feed">
-            <div class="empty-state">Waiting to start&hellip;</div>
+          <div class="summary-header-right">
+            <span id="lookbackMeta" class="meta">Auto-refreshes</span>
+            <button id="btnLookback" class="btn-sm">Refresh</button>
+            <button class="btn-listen" data-stream-id="lookback" title="Toggle lookback voice">
+              <span class="listen-icon">&#9834;</span> Listen
+            </button>
           </div>
         </div>
-      </div>
-    </section>
+        <div id="lookbackContent" class="summary-content">
+          <div class="empty-state">Lookback summaries will appear here...</div>
+        </div>
+      </section>
+    </div>
 
-    <!-- Stream 3: Custom input -->
-    <section class="stream-panel" data-stream-id="2" data-url="">
-      <div class="stream-header">
-        <h2>Custom Stream</h2>
-        <div class="stream-controls">
-          <div class="url-input-group">
-            <input type="text" class="custom-url" placeholder="Paste any YouTube Live URL" autocomplete="off" />
+    <!-- Video grid — each cell has video + its own translation feed -->
+    <div class="video-grid">
+      <div class="video-cell" data-stream-id="alarabiya">
+        <div class="cell-header">
+          <span class="cell-title">Al Arabiya Baghdad</span>
+          <div class="cell-header-right">
+            <div class="status-indicator offline">
+              <span class="status-dot"></span>
+              <span class="status-text">...</span>
+            </div>
+            <button class="btn-listen" data-stream-id="alarabiya" title="Toggle audio dub">
+              <span class="listen-icon">&#9834;</span> Listen
+            </button>
           </div>
-          <div class="status-indicator offline">
-            <span class="status-dot"></span>
-            <span class="status-text">Offline</span>
-          </div>
-          <span class="latency-display"></span>
+        </div>
+        <div class="cell-video">
+          <iframe src="https://www.youtube.com/embed/n7eQejkXbnM?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
+        </div>
+        <div class="cell-feed" data-feed-for="alarabiya">
+          <div class="empty-state">Translations will appear here...</div>
         </div>
       </div>
-      <div class="player-area">
-        <div class="video-container">
-          <iframe allowfullscreen allow="autoplay"></iframe>
+
+      <div class="video-cell" data-stream-id="aljazeera">
+        <div class="cell-header">
+          <span class="cell-title">Al Jazeera Arabic</span>
+          <div class="cell-header-right">
+            <div class="status-indicator offline">
+              <span class="status-dot"></span>
+              <span class="status-text">...</span>
+            </div>
+            <button class="btn-listen" data-stream-id="aljazeera" title="Toggle audio dub">
+              <span class="listen-icon">&#9834;</span> Listen
+            </button>
+          </div>
         </div>
-        <div class="subtitle-panel">
-          <div class="panel-header">
-            <span class="panel-title">Live Translation</span>
-            <button class="btn-text btn-clear">Clear</button>
-          </div>
-          <div class="subtitle-feed">
-            <div class="empty-state">Paste a URL above, then click Start All&hellip;</div>
-          </div>
+        <div class="cell-video">
+          <iframe src="https://www.youtube.com/embed/bNyUyrR0PHo?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
+        </div>
+        <div class="cell-feed" data-feed-for="aljazeera">
+          <div class="empty-state">Translations will appear here...</div>
         </div>
       </div>
-    </section>
+
+      <div class="video-cell" data-stream-id="alaghad">
+        <div class="cell-header">
+          <span class="cell-title">Alaghad</span>
+          <div class="cell-header-right">
+            <div class="status-indicator offline">
+              <span class="status-dot"></span>
+              <span class="status-text">...</span>
+            </div>
+            <button class="btn-listen" data-stream-id="alaghad" title="Toggle audio dub">
+              <span class="listen-icon">&#9834;</span> Listen
+            </button>
+          </div>
+        </div>
+        <div class="cell-video">
+          <iframe src="https://www.youtube.com/embed/4N5jTVWB7vA?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
+        </div>
+        <div class="cell-feed" data-feed-for="alaghad">
+          <div class="empty-state">Translations will appear here...</div>
+        </div>
+      </div>
+
+      <div class="video-cell" data-stream-id="alaraby">
+        <div class="cell-header">
+          <span class="cell-title">Alaraby TV</span>
+          <div class="cell-header-right">
+            <div class="status-indicator offline">
+              <span class="status-dot"></span>
+              <span class="status-text">...</span>
+            </div>
+            <button class="btn-listen" data-stream-id="alaraby" title="Toggle audio dub">
+              <span class="listen-icon">&#9834;</span> Listen
+            </button>
+          </div>
+        </div>
+        <div class="cell-video">
+          <iframe src="https://www.youtube.com/embed/e2RgSa1Wt5o?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
+        </div>
+        <div class="cell-feed" data-feed-for="alaraby">
+          <div class="empty-state">Translations will appear here...</div>
+        </div>
+      </div>
+    </div>
   </main>
 
-  <footer>DubToEnglish &mdash; Powered by OpenAI Whisper, GPT-4o &amp; TTS</footer>
+  <footer>DubToEnglish &mdash; Powered by OpenAI Whisper, GPT-4o &amp; TTS | Transcripts stored in Firebase</footer>
 
   <script src="app.js"></script>
 </body>
