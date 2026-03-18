@@ -2,5 +2,4 @@
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/api/streams"
 restartPolicyType = "ON_FAILURE"
