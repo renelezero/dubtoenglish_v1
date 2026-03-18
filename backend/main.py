@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from scraper import fetch_rss_feeds, fetch_gdelt_events
+from stream import LIVE_STREAMS, capture_audio_chunks, cleanup_chunk
+from transcribe import transcribe_audio
 from analyze import analyze_item
 from tts import synthesize_speech_bytes
 from store import (
@@ -102,6 +104,52 @@ async def run_gdelt_loop():
         await asyncio.sleep(max(0, GDELT_INTERVAL - elapsed))
 
 
+# ---- Background: Live HLS stream pipeline ----
+
+CHUNK_DURATION = 5.0
+
+async def run_stream_pipeline(stream_cfg: dict):
+    """Capture audio from an HLS stream, transcribe, analyze, and broadcast."""
+    sid = stream_cfg["id"]
+    name = stream_cfg["name"]
+    url = stream_cfg["url"]
+
+    while True:
+        try:
+            logger.info("[%s] Connecting to HLS stream...", name)
+            await hub.broadcast({"type": "stream_status", "stream_id": sid, "status": "connecting"})
+
+            async for chunk_path in capture_audio_chunks(url, chunk_duration=CHUNK_DURATION):
+                try:
+                    arabic = await transcribe_audio(chunk_path)
+                    if not arabic or len(arabic.strip()) < 5:
+                        continue
+
+                    item = {
+                        "id": f"{sid}_{int(time.time())}",
+                        "source_id": sid,
+                        "source_name": name,
+                        "headline_ar": arabic[:200],
+                        "body_ar": arabic,
+                        "url": "",
+                        "origin": "live",
+                    }
+
+                    analyzed = await analyze_item(item)
+                    if analyzed:
+                        entry = await asyncio.to_thread(add_event, analyzed)
+                        await hub.broadcast({"type": "event", "event": entry})
+                        await hub.broadcast({"type": "stream_status", "stream_id": sid, "status": "live"})
+
+                finally:
+                    cleanup_chunk(chunk_path)
+
+        except Exception:
+            logger.exception("[%s] Stream error, retrying in 15s...", name)
+            await hub.broadcast({"type": "stream_status", "stream_id": sid, "status": "error"})
+            await asyncio.sleep(15)
+
+
 # ---- Background: AI briefing ----
 
 async def _make_tts_b64(text: str) -> str | None:
@@ -161,7 +209,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(run_gdelt_loop()),
         asyncio.create_task(run_briefing_loop()),
     ]
-    logger.info("Started RSS + GDELT scrapers + briefing loop")
+    for stream_cfg in LIVE_STREAMS:
+        tasks.append(asyncio.create_task(run_stream_pipeline(stream_cfg)))
+    logger.info("Started RSS + GDELT + %d live streams + briefing", len(LIVE_STREAMS))
     yield
     for t in tasks:
         t.cancel()
