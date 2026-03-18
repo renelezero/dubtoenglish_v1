@@ -6,3 +6,6 @@ __pycache__/
 backend/__pycache__/
 .claude/
 firebase-service-account.json
+data/*.db
+data/*.db-wal
+data/*.db-shm
