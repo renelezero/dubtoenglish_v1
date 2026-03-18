@@ -3,49 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DubToEnglish — Live Arabic-to-English Intelligence</title>
+  <title>Ein Americy — Live Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
-    <h1>Dub<span class="arrow">&rarr;</span>English</h1>
-    <p class="tagline">Live Arabic-to-English AI dubbing &amp; intelligence monitor</p>
+    <div class="brand">
+      <h1>Ein <span class="brand-highlight">Americy</span></h1>
+    </div>
+    <p class="tagline">Real-time Arabic intelligence &mdash; translated, summarized, spoken</p>
+    <div class="header-status">
+      <div id="connIndicator" class="status-indicator offline">
+        <span class="status-dot"></span>
+        <span id="connText">Connecting...</span>
+      </div>
+    </div>
   </header>
 
   <main>
-    <!-- Connection status -->
-    <div class="controls-bar">
-      <div class="connection-status">
-        <div id="connIndicator" class="status-indicator offline">
-          <span class="status-dot"></span>
-          <span id="connText">Connecting...</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Two AI log panels -->
     <div class="summary-grid">
       <!-- Live Intelligence Feed -->
-      <section class="summary-panel">
+      <section class="summary-panel panel-live">
         <div class="summary-header">
-          <h2>Live Intelligence Feed</h2>
+          <div class="panel-label">
+            <span class="panel-icon">&#9889;</span>
+            <h2>Live Feed</h2>
+          </div>
           <div class="summary-header-right">
-            <span id="liveMeta" class="meta">Updates every ~7s</span>
+            <span id="liveMeta" class="meta">~7s updates</span>
             <button class="btn-listen" data-stream-id="live-updates" title="Toggle live feed voice">
               <span class="listen-icon">&#9834;</span> Listen
             </button>
           </div>
         </div>
         <div id="liveContent" class="summary-content">
-          <div class="empty-state">Waiting for streams to generate transcripts...</div>
+          <div class="empty-state">Waiting for streams...</div>
         </div>
       </section>
 
       <!-- Lookback Briefings -->
-      <section class="summary-panel">
+      <section class="summary-panel panel-lookback">
         <div class="summary-header">
           <div class="summary-header-left">
-            <h2>Lookback Briefings</h2>
+            <div class="panel-label">
+              <span class="panel-icon">&#128200;</span>
+              <h2>Lookback</h2>
+            </div>
             <div class="window-tabs">
               <button class="tab active" data-window="3h">3h</button>
               <button class="tab" data-window="6h">6h</button>
@@ -66,11 +73,11 @@
       </section>
     </div>
 
-    <!-- Video grid — each cell has video + its own translation feed -->
+    <!-- Video grid -->
     <div class="video-grid">
       <div class="video-cell" data-stream-id="alarabiya">
         <div class="cell-header">
-          <span class="cell-title">Al Arabiya Baghdad</span>
+          <span class="cell-title">Al Arabiya</span>
           <div class="cell-header-right">
             <div class="status-indicator offline">
               <span class="status-dot"></span>
@@ -91,7 +98,7 @@
 
       <div class="video-cell" data-stream-id="aljazeera">
         <div class="cell-header">
-          <span class="cell-title">Al Jazeera Arabic</span>
+          <span class="cell-title">Al Jazeera</span>
           <div class="cell-header-right">
             <div class="status-indicator offline">
               <span class="status-dot"></span>
@@ -154,7 +161,7 @@
     </div>
   </main>
 
-  <footer>DubToEnglish &mdash; Powered by OpenAI Whisper, GPT-4o &amp; TTS | Transcripts stored in Firebase</footer>
+  <footer>Ein Americy</footer>
 
   <script src="app.js"></script>
 </body>
