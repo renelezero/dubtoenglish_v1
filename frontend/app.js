@@ -49,19 +49,26 @@
   };
 
   const markers = L.layerGroup().addTo(map);
+  const pinList = [];
+
+  const BASE_RADIUS = { critical: 14, high: 11, medium: 9, low: 7 };
+  const MIN_RADIUS = 3;
+  const DECAY_MS = 10 * 60 * 1000; // shrink to min over 10 minutes
 
   function addMapPin(ev) {
     const locs = ev.locations || [];
+    const born = Date.now();
     for (const loc of locs) {
       if (loc.lat == null || loc.lng == null) continue;
       const color = SEVERITY_COLORS[ev.severity] || SEVERITY_COLORS.low;
+      const startR = BASE_RADIUS[ev.severity] || BASE_RADIUS.low;
       const marker = L.circleMarker([loc.lat, loc.lng], {
-        radius: ev.severity === "critical" ? 8 : ev.severity === "high" ? 6 : 4,
+        radius: startR,
         fillColor: color,
         color: color,
-        weight: 1,
-        opacity: 0.9,
-        fillOpacity: 0.6,
+        weight: 1.5,
+        opacity: 0.95,
+        fillOpacity: 0.7,
       });
       marker.bindPopup(
         '<div class="map-popup">' +
@@ -72,8 +79,21 @@
         "</div>"
       );
       markers.addLayer(marker);
+      pinList.push({ marker, born, startR });
     }
   }
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const pin of pinList) {
+      const age = now - pin.born;
+      const t = Math.min(age / DECAY_MS, 1);
+      const r = pin.startR - (pin.startR - MIN_RADIUS) * t;
+      const opacity = 0.95 - 0.55 * t;
+      pin.marker.setRadius(r);
+      pin.marker.setStyle({ fillOpacity: opacity * 0.7, opacity: opacity });
+    }
+  }, 5000);
 
   // ---- Feed ----
   const MAX_FEED = 80;
