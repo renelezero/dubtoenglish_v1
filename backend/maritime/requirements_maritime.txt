@@ -1,0 +1,10 @@
+# Maritime Intelligence Module — additional dependencies
+# Install: pip install -r maritime/requirements_maritime.txt
+
+websockets
+beautifulsoup4
+httpx
+openai
+python-dotenv
+fastapi
+uvicorn

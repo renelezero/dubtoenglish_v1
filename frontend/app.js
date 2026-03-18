@@ -26,6 +26,61 @@
   const statSources = document.getElementById("statSources");
   const statTopLocation = document.getElementById("statTopLocation");
   const statCritical = document.getElementById("statCritical");
+  const sevFilters = document.getElementById("sevFilters");
+  const srcFilters = document.getElementById("srcFilters");
+
+  // ---- Filter state ----
+  let filterSev = "all";
+  let filterSrc = "all";
+  const knownSources = new Set();
+
+  function matchesFilter(ev) {
+    if (filterSev !== "all" && ev.severity !== filterSev) return false;
+    if (filterSrc !== "all" && ev.source_name !== filterSrc) return false;
+    return true;
+  }
+
+  sevFilters.addEventListener("click", (e) => {
+    const btn = e.target.closest(".filter-pill");
+    if (!btn) return;
+    filterSev = btn.dataset.sev;
+    sevFilters.querySelectorAll(".filter-pill").forEach((b) => b.classList.toggle("active", b.dataset.sev === filterSev));
+    applyFilters();
+  });
+
+  srcFilters.addEventListener("click", (e) => {
+    const btn = e.target.closest(".filter-pill");
+    if (!btn) return;
+    filterSrc = btn.dataset.src;
+    srcFilters.querySelectorAll(".filter-pill").forEach((b) => b.classList.toggle("active", b.dataset.src === filterSrc));
+    applyFilters();
+  });
+
+  function addSourcePill(name) {
+    if (knownSources.has(name)) return;
+    knownSources.add(name);
+    const btn = document.createElement("button");
+    btn.className = "filter-pill";
+    btn.dataset.src = name;
+    btn.textContent = name;
+    srcFilters.appendChild(btn);
+  }
+
+  function applyFilters() {
+    // Feed items
+    feedContent.querySelectorAll(".feed-item").forEach((el) => {
+      const sev = el.dataset.severity;
+      const src = el.dataset.source;
+      const show = (filterSev === "all" || sev === filterSev) && (filterSrc === "all" || src === filterSrc);
+      el.style.display = show ? "" : "none";
+    });
+    // Map pins
+    for (const pin of pinList) {
+      const show = (filterSev === "all" || pin.severity === filterSev) && (filterSrc === "all" || pin.source === filterSrc);
+      if (show && !markers.hasLayer(pin.marker)) markers.addLayer(pin.marker);
+      if (!show && markers.hasLayer(pin.marker)) markers.removeLayer(pin.marker);
+    }
+  }
 
   // ---- Map ----
   const map = L.map("map", {
@@ -53,11 +108,11 @@
 
   const BASE_RADIUS = { critical: 14, high: 11, medium: 9, low: 7 };
   const MIN_RADIUS = 3;
-  const DECAY_MS = 10 * 60 * 1000; // shrink to min over 10 minutes
+  const DECAY_MS = 10 * 60 * 1000;
 
   function addMapPin(ev) {
     const locs = ev.locations || [];
-    const born = Date.now();
+    const born = ev.timestamp ? new Date(ev.timestamp).getTime() : Date.now();
     for (const loc of locs) {
       if (loc.lat == null || loc.lng == null) continue;
       const color = SEVERITY_COLORS[ev.severity] || SEVERITY_COLORS.low;
@@ -72,14 +127,14 @@
       });
       marker.bindPopup(
         '<div class="map-popup">' +
-          '<div class="popup-severity ' + ev.severity + '">' + ev.severity.toUpperCase() + "</div>" +
+          '<div class="popup-severity ' + ev.severity + '">' + (ev.severity || "").toUpperCase() + "</div>" +
           "<strong>" + esc(ev.headline_en || "") + "</strong>" +
           "<p>" + esc(ev.summary_en || "") + "</p>" +
           '<div class="popup-source">' + esc(ev.source_name || "") + " &middot; " + esc(loc.name || "") + "</div>" +
         "</div>"
       );
       markers.addLayer(marker);
-      pinList.push({ marker, born, startR });
+      pinList.push({ marker, born, startR, severity: ev.severity || "low", source: ev.source_name || "" });
     }
   }
 
@@ -96,7 +151,7 @@
   }, 5000);
 
   // ---- Feed ----
-  const MAX_FEED = 80;
+  const MAX_FEED = 200;
   let feedItems = 0;
 
   function clearEmpty(el) {
@@ -104,19 +159,32 @@
     if (e) e.remove();
   }
 
-  function addFeedItem(ev) {
+  function addFeedItem(ev, prepend) {
     clearEmpty(feedContent);
+    addSourcePill(ev.source_name || "Unknown");
+
     const el = document.createElement("div");
     el.className = "feed-item sev-" + (ev.severity || "low");
+    el.dataset.severity = ev.severity || "low";
+    el.dataset.source = ev.source_name || "";
+
+    const origin = ev.origin === "live" ? '<span class="feed-live">LIVE</span> ' : "";
+
     el.innerHTML =
       '<div class="feed-top">' +
-        '<span class="feed-source">' + esc(ev.source_name || "") + "</span>" +
+        '<span class="feed-source">' + origin + esc(ev.source_name || "") + "</span>" +
         '<span class="feed-time">' + ago(ev.timestamp) + "</span>" +
       "</div>" +
       '<div class="feed-headline">' + esc(ev.headline_en || "") + "</div>" +
       (ev.summary_en ? '<div class="feed-summary">' + esc(ev.summary_en) + "</div>" : "");
 
-    feedContent.prepend(el);
+    if (!matchesFilter(ev)) el.style.display = "none";
+
+    if (prepend !== false) {
+      feedContent.prepend(el);
+    } else {
+      feedContent.appendChild(el);
+    }
     feedItems++;
     feedCount.textContent = feedItems;
 
@@ -128,7 +196,7 @@
   // ---- Briefing ----
   const MAX_BRIEFING = 50;
 
-  function addBriefingEntry(entry) {
+  function addBriefingEntry(entry, prepend) {
     clearEmpty(briefingContent);
     const el = document.createElement("div");
     el.className = "briefing-entry";
@@ -141,7 +209,11 @@
       '<div class="briefing-time">' + ts + "</div>" +
       '<div class="briefing-text">' + esc(entry.text) + "</div>";
 
-    briefingContent.prepend(el);
+    if (prepend !== false) {
+      briefingContent.prepend(el);
+    } else {
+      briefingContent.appendChild(el);
+    }
 
     while (briefingContent.children.length > MAX_BRIEFING) {
       briefingContent.removeChild(briefingContent.lastChild);
@@ -196,7 +268,7 @@
     statSources.textContent = Object.keys(stats.sources || {}).length;
     const locs = stats.locations || {};
     const topLoc = Object.keys(locs).sort((a, b) => locs[b] - locs[a])[0];
-    statTopLocation.textContent = topLoc || "—";
+    statTopLocation.textContent = topLoc || "\u2014";
     statCritical.textContent = (stats.severities || {}).critical || 0;
   }
 
@@ -257,6 +329,26 @@
       try { msg = JSON.parse(e.data); } catch { return; }
 
       switch (msg.type) {
+        case "history":
+          if (msg.events) {
+            feedContent.innerHTML = "";
+            feedItems = 0;
+            for (const ev of msg.events) {
+              addFeedItem(ev, false);
+              addMapPin(ev);
+            }
+          }
+          break;
+
+        case "briefing_history":
+          if (msg.entries) {
+            briefingContent.innerHTML = "";
+            for (const entry of msg.entries) {
+              addBriefingEntry(entry, false);
+            }
+          }
+          break;
+
         case "event":
           if (msg.event) {
             addFeedItem(msg.event);
@@ -288,22 +380,5 @@
     });
   }
 
-  // ---- Load existing events on page load ----
-  async function loadHistory() {
-    try {
-      const res = await fetch("/api/events?hours=1");
-      const data = await res.json();
-      if (data.events) {
-        for (const ev of data.events) {
-          addFeedItem(ev);
-          addMapPin(ev);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load history:", err);
-    }
-  }
-
-  loadHistory();
   connect();
 })();

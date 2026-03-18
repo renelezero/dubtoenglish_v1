@@ -228,6 +228,49 @@ main {
   letter-spacing: 0.04em;
 }
 
+/* ---- Filter bar ---- */
+
+.filter-bar {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.filter-pill {
+  padding: 0.12rem 0.4rem;
+  font-family: inherit;
+  font-size: 0.5rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-3);
+  transition: all 0.12s;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.filter-pill:hover { color: var(--text-2); border-color: rgba(255,255,255,0.1); }
+.filter-pill.active { background: var(--bg-3); color: var(--text-1); border-color: rgba(255,255,255,0.12); }
+
+.filter-pill.sev-critical.active { border-color: var(--red); color: var(--red); }
+.filter-pill.sev-high.active { border-color: var(--amber); color: var(--amber); }
+.filter-pill.sev-medium.active { border-color: var(--blue); color: var(--blue); }
+.filter-pill.sev-low.active { border-color: var(--text-3); color: var(--text-2); }
+
 /* ---- Feed ---- */
 
 .feed-scroll {
@@ -268,6 +311,18 @@ main {
 .feed-time {
   font-size: 0.5rem;
   color: var(--text-3);
+}
+
+.feed-live {
+  background: var(--red);
+  color: #fff;
+  font-size: 0.45rem;
+  font-weight: 700;
+  padding: 0.04rem 0.2rem;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  margin-right: 0.2rem;
+  animation: pulse 1.5s infinite;
 }
 
 .feed-headline {

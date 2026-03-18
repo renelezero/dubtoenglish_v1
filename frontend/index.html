@@ -42,6 +42,18 @@
             <h2>Live Feed</h2>
             <span id="feedCount" class="badge">0</span>
           </div>
+          <div class="filter-bar">
+            <div class="filter-group" id="sevFilters">
+              <button class="filter-pill active" data-sev="all">All</button>
+              <button class="filter-pill sev-critical" data-sev="critical">Critical</button>
+              <button class="filter-pill sev-high" data-sev="high">High</button>
+              <button class="filter-pill sev-medium" data-sev="medium">Medium</button>
+              <button class="filter-pill sev-low" data-sev="low">Low</button>
+            </div>
+            <div class="filter-group" id="srcFilters">
+              <button class="filter-pill active" data-src="all">All Sources</button>
+            </div>
+          </div>
           <div id="feedContent" class="feed-scroll">
             <div class="empty-state">Scanning sources...</div>
           </div>

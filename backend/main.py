@@ -231,6 +231,18 @@ app.add_middleware(
 async def websocket_feed(ws: WebSocket):
     await hub.connect(ws)
     try:
+        # Send stored data immediately so new clients see everything
+        events = await asyncio.to_thread(query_events, 6.0)
+        if events:
+            await ws.send_json({"type": "history", "events": events})
+
+        summaries = await asyncio.to_thread(query_summaries, 6.0)
+        if summaries:
+            await ws.send_json({"type": "briefing_history", "entries": summaries})
+
+        stats = await asyncio.to_thread(get_stats, 1.0)
+        await ws.send_json({"type": "stats", "stats": stats})
+
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
