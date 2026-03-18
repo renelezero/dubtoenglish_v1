@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DubToEnglish — Live Arabic-to-English Dub</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Dub<span class="arrow">&rarr;</span>English</h1>
+    <p class="tagline">Live Arabic-to-English AI dubbing &mdash; multiple streams</p>
+  </header>
+
+  <main>
+    <!-- Global controls -->
+    <div class="global-controls">
+      <button id="btnStartAll" class="btn-global">Start All</button>
+      <button id="btnStopAll" class="btn-global btn-danger">Stop All</button>
+      <label class="toggle">
+        <input type="checkbox" id="globalAudio" />
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">Audio (all)</span>
+      </label>
+    </div>
+
+    <!-- Stream 1: Al Arabiya -->
+    <section class="stream-panel" data-stream-id="0" data-url="https://www.youtube.com/watch?v=n7eQejkXbnM">
+      <div class="stream-header">
+        <h2>Al Arabiya Baghdad</h2>
+        <div class="stream-controls">
+          <div class="status-indicator offline">
+            <span class="status-dot"></span>
+            <span class="status-text">Offline</span>
+          </div>
+          <span class="latency-display"></span>
+        </div>
+      </div>
+      <div class="player-area">
+        <div class="video-container">
+          <iframe allowfullscreen allow="autoplay"></iframe>
+        </div>
+        <div class="subtitle-panel">
+          <div class="panel-header">
+            <span class="panel-title">Live Translation</span>
+            <button class="btn-text btn-clear">Clear</button>
+          </div>
+          <div class="subtitle-feed">
+            <div class="empty-state">Waiting to start&hellip;</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stream 2: Second channel -->
+    <section class="stream-panel" data-stream-id="1" data-url="https://www.youtube.com/watch?v=bNyUyrR0PHo">
+      <div class="stream-header">
+        <h2>Stream 2</h2>
+        <div class="stream-controls">
+          <div class="status-indicator offline">
+            <span class="status-dot"></span>
+            <span class="status-text">Offline</span>
+          </div>
+          <span class="latency-display"></span>
+        </div>
+      </div>
+      <div class="player-area">
+        <div class="video-container">
+          <iframe allowfullscreen allow="autoplay"></iframe>
+        </div>
+        <div class="subtitle-panel">
+          <div class="panel-header">
+            <span class="panel-title">Live Translation</span>
+            <button class="btn-text btn-clear">Clear</button>
+          </div>
+          <div class="subtitle-feed">
+            <div class="empty-state">Waiting to start&hellip;</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stream 3: Custom input -->
+    <section class="stream-panel" data-stream-id="2" data-url="">
+      <div class="stream-header">
+        <h2>Custom Stream</h2>
+        <div class="stream-controls">
+          <div class="url-input-group">
+            <input type="text" class="custom-url" placeholder="Paste any YouTube Live URL" autocomplete="off" />
+          </div>
+          <div class="status-indicator offline">
+            <span class="status-dot"></span>
+            <span class="status-text">Offline</span>
+          </div>
+          <span class="latency-display"></span>
+        </div>
+      </div>
+      <div class="player-area">
+        <div class="video-container">
+          <iframe allowfullscreen allow="autoplay"></iframe>
+        </div>
+        <div class="subtitle-panel">
+          <div class="panel-header">
+            <span class="panel-title">Live Translation</span>
+            <button class="btn-text btn-clear">Clear</button>
+          </div>
+          <div class="subtitle-feed">
+            <div class="empty-state">Paste a URL above, then click Start All&hellip;</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>DubToEnglish &mdash; Powered by OpenAI Whisper, GPT-4o &amp; TTS</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
