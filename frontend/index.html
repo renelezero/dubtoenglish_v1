@@ -3,166 +3,89 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ein Americy — Live Intelligence</title>
+  <title>Ein Americy — MENA Intelligence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
     <div class="brand">
-      <h1>Ein <span class="brand-highlight">Americy</span></h1>
+      <h1>Ein <span class="hl">Americy</span></h1>
+      <span class="tagline">MENA Intelligence</span>
     </div>
-    <p class="tagline">Real-time Arabic intelligence &mdash; translated, summarized, spoken</p>
-    <div class="header-status">
+    <div class="header-right">
       <div id="connIndicator" class="status-indicator offline">
         <span class="status-dot"></span>
         <span id="connText">Connecting...</span>
       </div>
+      <button id="btnVoice" class="btn-voice" title="Toggle AI voice">
+        <span class="voice-icon">&#9834;</span> Voice
+      </button>
     </div>
   </header>
 
   <main>
-    <!-- Two AI log panels -->
-    <div class="summary-grid">
-      <!-- Live Intelligence Feed -->
-      <section class="summary-panel panel-live">
-        <div class="summary-header">
-          <div class="panel-label">
-            <span class="panel-icon">&#9889;</span>
-            <h2>Live Feed</h2>
-          </div>
-          <div class="summary-header-right">
-            <span id="liveMeta" class="meta">~7s updates</span>
-            <button class="btn-listen" data-stream-id="live-updates" title="Toggle live feed voice">
-              <span class="listen-icon">&#9834;</span> Listen
-            </button>
-          </div>
-        </div>
-        <div id="liveContent" class="summary-content">
-          <div class="empty-state">Waiting for streams...</div>
-        </div>
-      </section>
+    <div class="dashboard">
+      <!-- Map -->
+      <div class="panel panel-map">
+        <div id="map"></div>
+      </div>
 
-      <!-- Lookback Briefings -->
-      <section class="summary-panel panel-lookback">
-        <div class="summary-header">
-          <div class="summary-header-left">
-            <div class="panel-label">
-              <span class="panel-icon">&#128200;</span>
-              <h2>Lookback</h2>
-            </div>
-            <div class="window-tabs">
-              <button class="tab active" data-window="3h">3h</button>
-              <button class="tab" data-window="6h">6h</button>
-              <button class="tab" data-window="12h">12h</button>
-            </div>
+      <!-- Right column -->
+      <div class="right-col">
+        <!-- Live Feed -->
+        <div class="panel panel-feed">
+          <div class="panel-header">
+            <h2>Live Feed</h2>
+            <span id="feedCount" class="badge">0</span>
           </div>
-          <div class="summary-header-right">
-            <span id="lookbackMeta" class="meta">Auto-refreshes</span>
-            <button id="btnLookback" class="btn-sm">Refresh</button>
-            <button class="btn-listen" data-stream-id="lookback" title="Toggle lookback voice">
-              <span class="listen-icon">&#9834;</span> Listen
-            </button>
+          <div id="feedContent" class="feed-scroll">
+            <div class="empty-state">Scanning sources...</div>
           </div>
         </div>
-        <div id="lookbackContent" class="summary-content">
-          <div class="empty-state">Lookback summaries will appear here...</div>
+
+        <!-- AI Briefing -->
+        <div class="panel panel-briefing">
+          <div class="panel-header">
+            <h2>AI Briefing</h2>
+            <span id="briefingMeta" class="meta">Waiting for data...</span>
+          </div>
+          <div id="briefingContent" class="briefing-scroll">
+            <div class="empty-state">Briefing will appear here...</div>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
 
-    <!-- Video grid -->
-    <div class="video-grid">
-      <div class="video-cell" data-stream-id="alarabiya">
-        <div class="cell-header">
-          <span class="cell-title">Al Arabiya</span>
-          <div class="cell-header-right">
-            <div class="status-indicator offline">
-              <span class="status-dot"></span>
-              <span class="status-text">...</span>
-            </div>
-            <button class="btn-listen" data-stream-id="alarabiya" title="Toggle audio dub">
-              <span class="listen-icon">&#9834;</span> Listen
-            </button>
-          </div>
-        </div>
-        <div class="cell-video">
-          <iframe src="https://www.youtube.com/embed/n7eQejkXbnM?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
-        </div>
-        <div class="cell-feed" data-feed-for="alarabiya">
-          <div class="empty-state">Translations will appear here...</div>
-        </div>
+    <!-- Stats bar -->
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-value" id="statTotal">0</span>
+        <span class="stat-label">Events</span>
       </div>
-
-      <div class="video-cell" data-stream-id="aljazeera">
-        <div class="cell-header">
-          <span class="cell-title">Al Jazeera</span>
-          <div class="cell-header-right">
-            <div class="status-indicator offline">
-              <span class="status-dot"></span>
-              <span class="status-text">...</span>
-            </div>
-            <button class="btn-listen" data-stream-id="aljazeera" title="Toggle audio dub">
-              <span class="listen-icon">&#9834;</span> Listen
-            </button>
-          </div>
-        </div>
-        <div class="cell-video">
-          <iframe src="https://www.youtube.com/embed/bNyUyrR0PHo?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
-        </div>
-        <div class="cell-feed" data-feed-for="aljazeera">
-          <div class="empty-state">Translations will appear here...</div>
-        </div>
+      <div class="stat">
+        <span class="stat-value" id="statSources">0</span>
+        <span class="stat-label">Sources</span>
       </div>
-
-      <div class="video-cell" data-stream-id="alaghad">
-        <div class="cell-header">
-          <span class="cell-title">Alaghad</span>
-          <div class="cell-header-right">
-            <div class="status-indicator offline">
-              <span class="status-dot"></span>
-              <span class="status-text">...</span>
-            </div>
-            <button class="btn-listen" data-stream-id="alaghad" title="Toggle audio dub">
-              <span class="listen-icon">&#9834;</span> Listen
-            </button>
-          </div>
-        </div>
-        <div class="cell-video">
-          <iframe src="https://www.youtube.com/embed/4N5jTVWB7vA?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
-        </div>
-        <div class="cell-feed" data-feed-for="alaghad">
-          <div class="empty-state">Translations will appear here...</div>
-        </div>
+      <div class="stat">
+        <span class="stat-value" id="statTopLocation">—</span>
+        <span class="stat-label">Top Location</span>
       </div>
-
-      <div class="video-cell" data-stream-id="alaraby">
-        <div class="cell-header">
-          <span class="cell-title">Alaraby TV</span>
-          <div class="cell-header-right">
-            <div class="status-indicator offline">
-              <span class="status-dot"></span>
-              <span class="status-text">...</span>
-            </div>
-            <button class="btn-listen" data-stream-id="alaraby" title="Toggle audio dub">
-              <span class="listen-icon">&#9834;</span> Listen
-            </button>
-          </div>
-        </div>
-        <div class="cell-video">
-          <iframe src="https://www.youtube.com/embed/e2RgSa1Wt5o?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
-        </div>
-        <div class="cell-feed" data-feed-for="alaraby">
-          <div class="empty-state">Translations will appear here...</div>
-        </div>
+      <div class="stat">
+        <span class="stat-value" id="statCritical">0</span>
+        <span class="stat-label">Critical</span>
+      </div>
+      <div class="stat stat-chart">
+        <canvas id="timelineChart" height="32"></canvas>
       </div>
     </div>
   </main>
 
-  <footer>Ein Americy</footer>
-
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -2,39 +2,34 @@ from openai import AsyncOpenAI
 
 _client: AsyncOpenAI | None = None
 
-INCREMENTAL_SYSTEM_PROMPT = """\
-You are an expert news analyst monitoring multiple Arabic news streams translated to English in real-time.
+INCREMENTAL_PROMPT = """\
+You are an intelligence analyst monitoring Arabic news sources in real-time.
 
 You will receive:
-1. New translated transcript chunks from the last ~30 seconds
+1. Recent translated news headlines and summaries from the last few minutes
 2. A log of what you have ALREADY reported (if any)
 
-Your job: produce a SHORT incremental update covering ONLY genuinely new information.
+Produce a SHORT spoken briefing covering ONLY new developments.
 
 Rules:
-- Do NOT repeat anything already in the previous log
-- Only mention new developments, new facts, new quotes, or meaningful changes
-- If the new transcripts contain no meaningfully new information (just repetition, filler, or ads), respond with exactly: NO_UPDATE
-- Use 1-3 concise bullet points max
-- After each bullet, note the source in parentheses, e.g. (Al Arabiya)
-- Be factual and neutral — no commentary
-- Write in a style suitable for reading aloud as a spoken briefing"""
+- Do NOT repeat anything from the previous log
+- 1-3 concise bullet points max
+- After each bullet, note the source in parentheses
+- If nothing is genuinely new, respond with exactly: NO_UPDATE
+- Write for reading aloud — natural spoken English, like a news anchor
+- Be factual and neutral"""
 
-LOOKBACK_SYSTEM_PROMPT = """\
-You are an expert news analyst monitoring multiple Arabic news streams translated to English.
-
-Given a collection of translated transcript chunks from the last {hours} hour(s), produce a clear, concise intelligence briefing in English.
+LOOKBACK_PROMPT = """\
+You are an intelligence analyst. Given translated news items from Arabic sources \
+over the last {hours} hour(s), produce a concise briefing.
 
 Format:
-- Use bullet points grouped by topic/story
-- Each bullet should be 1-2 sentences max
-- After each bullet, note the source stream in parentheses, e.g. (Al Arabiya)
-- If multiple sources cover the same story, consolidate and cite all sources
-- Order by importance/prominence
-- At the top, include a 1-sentence overall summary
-- If there are recurring/developing stories, flag them
-
-Keep the entire summary under 500 words. Be factual and neutral — no commentary."""
+- Group by topic/region
+- 1-2 sentence bullets, source in parentheses
+- Consolidate duplicate stories across sources
+- Order by severity/importance
+- Start with a 1-sentence overview
+- Under 400 words total"""
 
 
 def _get_client() -> AsyncOpenAI:
@@ -44,70 +39,42 @@ def _get_client() -> AsyncOpenAI:
     return _client
 
 
-def _format_transcripts(transcripts: list[dict]) -> str:
-    chunks: list[str] = []
-    for t in transcripts:
-        ts = t.get("timestamp", "")
-        src = t.get("stream_name", "Unknown")
-        eng = t.get("english", "")
-        if eng:
-            chunks.append(f"[{ts}] ({src}): {eng}")
-    combined = "\n".join(chunks)
-    if len(combined) > 80000:
-        combined = combined[-80000:]
-    return combined
-
-
-async def generate_summary(transcripts: list[dict], hours: float) -> str:
-    """Full lookback summary for the HTTP endpoint."""
-    if not transcripts:
-        return ""
-
-    combined = _format_transcripts(transcripts)
-    client = _get_client()
-
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": LOOKBACK_SYSTEM_PROMPT.format(hours=hours)},
-            {"role": "user", "content": f"Here are the translated transcript chunks:\n\n{combined}"},
-        ],
-        temperature=0.3,
-        max_tokens=2048,
-    )
-    return (response.choices[0].message.content or "").strip()
-
-
-async def generate_incremental_update(
-    transcripts: list[dict],
-    previous_log: str,
-) -> str | None:
-    """
-    Generate an incremental summary update.
-    Returns the new bullet points, or None if there's nothing new.
-    """
-    if not transcripts:
+async def generate_incremental_update(headlines: str, previous_log: str) -> str | None:
+    if not headlines.strip():
         return None
 
-    combined = _format_transcripts(transcripts)
     client = _get_client()
-
-    user_content = f"NEW TRANSCRIPTS:\n{combined}"
+    user = f"NEW ITEMS:\n{headlines}"
     if previous_log:
-        user_content += f"\n\n---\nALREADY REPORTED (do not repeat):\n{previous_log}"
+        user += f"\n\n---\nALREADY REPORTED:\n{previous_log}"
 
-    response = await client.chat.completions.create(
+    resp = await client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": INCREMENTAL_SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
+            {"role": "system", "content": INCREMENTAL_PROMPT},
+            {"role": "user", "content": user},
         ],
         temperature=0.3,
         max_tokens=512,
     )
-    text = (response.choices[0].message.content or "").strip()
-
+    text = (resp.choices[0].message.content or "").strip()
     if not text or text == "NO_UPDATE":
         return None
-
     return text
+
+
+async def generate_summary(headlines: str, hours: float) -> str:
+    if not headlines.strip():
+        return ""
+
+    client = _get_client()
+    resp = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": LOOKBACK_PROMPT.format(hours=hours)},
+            {"role": "user", "content": headlines},
+        ],
+        temperature=0.3,
+        max_tokens=2048,
+    )
+    return (resp.choices[0].message.content or "").strip()

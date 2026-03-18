@@ -1,186 +1,130 @@
 import logging
-import os
 import threading
-from collections import deque
+from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
-_COLLECTION = "transcripts"
-_SUMMARY_COLLECTION = "summaries"
-_USE_FIRESTORE = False
-_db = None
-
-# ---- In-memory fallback ----
-
-_mem_lock = threading.Lock()
-_mem_store: deque[dict] = deque(maxlen=5000)
-_mem_summaries: deque[dict] = deque(maxlen=1000)
+_lock = threading.Lock()
+_events: deque[dict] = deque(maxlen=5000)
+_summaries: deque[dict] = deque(maxlen=500)
 
 
-def _init_firebase():
-    global _USE_FIRESTORE, _db
-    try:
-        import firebase_admin
-        from firebase_admin import credentials, firestore
-
-        cred_path = os.path.join(os.path.dirname(__file__), "firebase-service-account.json")
-        if not os.path.exists(cred_path):
-            logger.warning("Firebase credentials not found at %s — using in-memory storage", cred_path)
-            return
-
-        if not firebase_admin._apps:
-            cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
-
-        client = firestore.client()
-        list(client.collection(_COLLECTION).limit(1).stream())
-        _db = client
-        _USE_FIRESTORE = True
-        logger.info("Firestore connected successfully")
-    except Exception as exc:
-        logger.warning("Firestore unavailable (%s) — using in-memory storage", exc)
+def add_event(event: dict) -> dict:
+    """Store an analyzed event. Returns the stored entry with ISO timestamp."""
+    entry = {**event, "timestamp": datetime.now(timezone.utc)}
+    with _lock:
+        _events.append(entry)
+    return _serialize_event(entry)
 
 
-_init_firebase()
-
-
-# ---- Transcript storage ----
-
-def add_transcript(stream_id: str, stream_name: str, arabic: str, english: str) -> None:
-    entry = {
-        "timestamp": datetime.now(timezone.utc),
-        "stream_id": stream_id,
-        "stream_name": stream_name,
-        "arabic": arabic,
-        "english": english,
+def _serialize_event(e: dict) -> dict:
+    return {
+        "id": e.get("id", ""),
+        "timestamp": e["timestamp"].isoformat() if hasattr(e["timestamp"], "isoformat") else str(e["timestamp"]),
+        "source_id": e.get("source_id", ""),
+        "source_name": e.get("source_name", ""),
+        "headline_ar": e.get("headline_ar", ""),
+        "headline_en": e.get("headline_en", ""),
+        "summary_en": e.get("summary_en", ""),
+        "locations": e.get("locations", []),
+        "topics": e.get("topics", []),
+        "people": e.get("people", []),
+        "severity": e.get("severity", "low"),
+        "url": e.get("url", ""),
+        "origin": e.get("origin", "rss"),
     }
 
-    if _USE_FIRESTORE:
-        try:
-            _db.collection(_COLLECTION).add(entry)
-            return
-        except Exception:
-            logger.exception("Firestore write failed, saving to memory")
 
-    with _mem_lock:
-        _mem_store.append(entry)
-
-
-def query_transcripts(hours: float) -> list[dict]:
+def query_events(hours: float = 1.0) -> list[dict]:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    with _lock:
+        return [_serialize_event(e) for e in _events if e["timestamp"] >= cutoff]
 
-    if _USE_FIRESTORE:
-        try:
-            docs = (
-                _db.collection(_COLLECTION)
-                .where("timestamp", ">=", cutoff)
-                .order_by("timestamp")
-                .stream()
-            )
-            results = []
-            for doc in docs:
-                d = doc.to_dict()
-                results.append({
-                    "timestamp": d["timestamp"].isoformat() if hasattr(d["timestamp"], "isoformat") else str(d["timestamp"]),
-                    "stream_id": d.get("stream_id", ""),
-                    "stream_name": d.get("stream_name", ""),
-                    "arabic": d.get("arabic", ""),
-                    "english": d.get("english", ""),
-                })
-            return results
-        except Exception:
-            logger.exception("Firestore query failed, falling back to memory")
 
-    with _mem_lock:
-        results = []
-        for entry in _mem_store:
-            if entry["timestamp"] >= cutoff:
-                results.append({
-                    "timestamp": entry["timestamp"].isoformat(),
-                    "stream_id": entry["stream_id"],
-                    "stream_name": entry["stream_name"],
-                    "arabic": entry["arabic"],
-                    "english": entry["english"],
-                })
-        return results
+def get_event_count(hours: float = 1.0) -> int:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    with _lock:
+        return sum(1 for e in _events if e["timestamp"] >= cutoff)
+
+
+def get_stats(hours: float = 1.0) -> dict:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    sources: Counter[str] = Counter()
+    topics: Counter[str] = Counter()
+    locations: Counter[str] = Counter()
+    severities: Counter[str] = Counter()
+    total = 0
+
+    with _lock:
+        for e in _events:
+            if e["timestamp"] < cutoff:
+                continue
+            total += 1
+            sources[e.get("source_name", "Unknown")] += 1
+            severities[e.get("severity", "low")] += 1
+            for t in e.get("topics", []):
+                topics[t] += 1
+            for loc in e.get("locations", []):
+                locations[loc.get("name", "")] += 1
+
+    return {
+        "total": total,
+        "sources": dict(sources.most_common(10)),
+        "topics": dict(topics.most_common(10)),
+        "locations": dict(locations.most_common(10)),
+        "severities": dict(severities),
+    }
+
+
+def get_recent_headlines(hours: float = 0.5) -> str:
+    """Format recent events as text for the AI summarizer."""
+    events = query_events(hours)
+    lines = []
+    for e in events:
+        src = e.get("source_name", "")
+        headline = e.get("headline_en", "")
+        summary = e.get("summary_en", "")
+        if headline:
+            lines.append(f"({src}) {headline}. {summary}")
+    combined = "\n".join(lines)
+    return combined[-8000:] if len(combined) > 8000 else combined
 
 
 # ---- Summary storage ----
 
-def add_summary(summary_type: str, text: str, transcript_count: int = 0) -> dict:
-    """
-    Store a summary entry. summary_type is 'lookback_6h', 'lookback_1h', or 'incremental'.
-    Returns the stored entry dict.
-    """
+def add_summary(summary_type: str, text: str, event_count: int = 0) -> dict:
     entry = {
         "timestamp": datetime.now(timezone.utc),
         "type": summary_type,
         "text": text,
-        "transcript_count": transcript_count,
+        "event_count": event_count,
     }
-
-    if _USE_FIRESTORE:
-        try:
-            _db.collection(_SUMMARY_COLLECTION).add(entry)
-        except Exception:
-            logger.exception("Firestore summary write failed, saving to memory")
-            with _mem_lock:
-                _mem_summaries.append(entry)
-    else:
-        with _mem_lock:
-            _mem_summaries.append(entry)
-
+    with _lock:
+        _summaries.append(entry)
     return {
         "timestamp": entry["timestamp"].isoformat(),
         "type": entry["type"],
         "text": entry["text"],
-        "transcript_count": entry["transcript_count"],
+        "event_count": entry["event_count"],
     }
 
 
-def query_summaries(hours: float = 6.0, limit: int = 200) -> list[dict]:
-    """Retrieve stored summary entries from the last N hours."""
+def query_summaries(hours: float = 6.0) -> list[dict]:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-
-    if _USE_FIRESTORE:
-        try:
-            docs = (
-                _db.collection(_SUMMARY_COLLECTION)
-                .where("timestamp", ">=", cutoff)
-                .order_by("timestamp")
-                .limit(limit)
-                .stream()
-            )
-            results = []
-            for doc in docs:
-                d = doc.to_dict()
-                results.append({
-                    "timestamp": d["timestamp"].isoformat() if hasattr(d["timestamp"], "isoformat") else str(d["timestamp"]),
-                    "type": d.get("type", ""),
-                    "text": d.get("text", ""),
-                    "transcript_count": d.get("transcript_count", 0),
-                })
-            return results
-        except Exception:
-            logger.exception("Firestore summary query failed, falling back to memory")
-
-    with _mem_lock:
-        results = []
-        for entry in _mem_summaries:
-            if entry["timestamp"] >= cutoff:
-                results.append({
-                    "timestamp": entry["timestamp"].isoformat(),
-                    "type": entry["type"],
-                    "text": entry["text"],
-                    "transcript_count": entry["transcript_count"],
-                })
-        if len(results) > limit:
-            results = results[-limit:]
-        return results
+    with _lock:
+        return [
+            {
+                "timestamp": e["timestamp"].isoformat(),
+                "type": e["type"],
+                "text": e["text"],
+                "event_count": e.get("event_count", 0),
+            }
+            for e in _summaries
+            if e["timestamp"] >= cutoff
+        ]
 
 
 def get_running_log(hours: float = 6.0) -> str:
-    """Return the concatenated text of all stored summaries as a running log."""
-    entries = query_summaries(hours=hours)
+    entries = query_summaries(hours)
     return "\n".join(e["text"] for e in entries if e["text"])
