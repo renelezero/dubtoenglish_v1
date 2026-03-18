@@ -16,6 +16,10 @@ RSS_FEEDS = [
     {"id": "rt_arabic", "name": "RT Arabic", "url": "https://arabic.rt.com/rss/"},
     {"id": "newarab", "name": "The New Arab", "url": "https://www.newarab.com/rss"},
     {"id": "alsharq", "name": "Al Sharq", "url": "https://al-sharq.com/rss/latestNews"},
+    {"id": "middleeasteye", "name": "Middle East Eye", "url": "https://www.middleeasteye.net/rss"},
+    {"id": "almayadeen", "name": "Al Mayadeen", "url": "https://www.almayadeen.net/rss/all"},
+    {"id": "anadolu_ar", "name": "Anadolu Arabic", "url": "https://www.aa.com.tr/ar/rss/default?cat=site"},
+    {"id": "dw_arabic", "name": "DW Arabic", "url": "https://rss.dw.com/xml/rss-ar-all"},
 ]
 
 GDELT_GEO_URL = (

@@ -30,7 +30,7 @@ FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 
 RSS_INTERVAL = 60
 GDELT_INTERVAL = 900
-BRIEFING_INTERVAL = 10
+BRIEFING_INTERVAL = 20
 
 
 # ---- Broadcast hub ----
@@ -113,7 +113,11 @@ async def run_gdelt_loop():
 CHUNK_DURATION = 5.0
 
 async def run_stream_pipeline(stream_cfg: dict):
-    """Capture audio from an HLS stream, transcribe, analyze, and broadcast."""
+    """
+    Capture audio from an HLS stream, transcribe with Whisper, and push
+    the raw Arabic transcription as a headline event. No per-chunk GPT call —
+    the AI summarizer batches everything every 20s instead.
+    """
     sid = stream_cfg["id"]
     name = stream_cfg["name"]
     url = stream_cfg["url"]
@@ -129,21 +133,23 @@ async def run_stream_pipeline(stream_cfg: dict):
                     if not arabic or len(arabic.strip()) < 5:
                         continue
 
-                    item = {
+                    entry = await asyncio.to_thread(add_event, {
                         "id": f"{sid}_{int(time.time())}",
                         "source_id": sid,
                         "source_name": name,
                         "headline_ar": arabic[:200],
-                        "body_ar": arabic,
+                        "headline_en": arabic[:200],
+                        "summary_en": "",
+                        "locations": [],
+                        "topics": [],
+                        "people": [],
+                        "severity": "medium",
                         "url": "",
                         "origin": "live",
-                    }
-
-                    analyzed = await analyze_item(item)
-                    if analyzed:
-                        entry = await asyncio.to_thread(add_event, analyzed)
-                        await hub.broadcast({"type": "event", "event": entry})
-                        await hub.broadcast({"type": "stream_status", "stream_id": sid, "status": "live"})
+                    })
+                    await hub.broadcast({"type": "event", "event": entry})
+                    await hub.broadcast({"type": "stream_status", "stream_id": sid, "status": "live"})
+                    logger.info("[%s] Transcription: %s", name, arabic[:60])
 
                 finally:
                     cleanup_chunk(chunk_path)
