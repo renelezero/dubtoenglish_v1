@@ -18,6 +18,9 @@ def extract_audio_url(youtube_url: str) -> str:
         "format": "bestaudio/best",
         "quiet": True,
         "no_warnings": True,
+        "extractor_args": {
+            "youtube": {"player_client": ["ios", "web_creator"]},
+        },
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(youtube_url, download=False)
