@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.9/dist/dist/vis-network.min.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -29,9 +30,42 @@
 
   <main>
     <div class="dashboard">
-      <!-- Map -->
+      <!-- Map / Network -->
       <div class="panel panel-map">
-        <div id="map"></div>
+        <div class="view-tabs">
+          <button class="view-tab active" data-view="map">Map</button>
+          <button class="view-tab" data-view="network">Actor Network</button>
+          <div class="net-controls" id="netControls" style="display:none">
+            <label>Dimension
+              <select id="netDimension">
+                <option value="">All</option>
+                <option value="political">Political</option>
+                <option value="economic">Economic</option>
+                <option value="military">Military</option>
+                <option value="religious">Religious</option>
+              </select>
+            </label>
+            <button id="netRefresh" class="net-refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="map" class="view-pane active"></div>
+        <div id="network" class="view-pane">
+          <div id="networkGraph"></div>
+          <div id="networkEmpty" class="empty-state net-empty">
+            Actor graph is still building. As events come in, actors and their
+            relationships (who is clashing / arresting / allying with whom) appear here.
+          </div>
+          <div class="net-legend">
+            <span class="net-legend-title">Dimension</span>
+            <span class="lg lg-political"></span>Political
+            <span class="lg lg-military"></span>Military
+            <span class="lg lg-economic"></span>Economic
+            <span class="lg lg-religious"></span>Religious
+            <span class="net-legend-title">Relation</span>
+            <span class="lg-line lg-hostile"></span>Hostile
+            <span class="lg-line lg-cooperative"></span>Cooperative
+          </div>
+        </div>
       </div>
 
       <!-- Right column -->
@@ -68,6 +102,11 @@
           <div id="briefingContent" class="briefing-scroll">
             <div class="empty-state">Briefing will appear here...</div>
           </div>
+          <form id="analystForm" class="analyst-form">
+            <input id="analystInput" type="text" autocomplete="off"
+              placeholder="Ask the analyst: who is fighting whom in Kirkuk?" />
+            <button type="submit" id="analystSend">Ask</button>
+          </form>
         </div>
       </div>
     </div>
@@ -98,6 +137,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

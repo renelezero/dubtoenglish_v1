@@ -314,6 +314,175 @@
     chart.update("none");
   }
 
+  // ---- Actor Network (vis-network) ----
+  const DIM_COLORS = {
+    political: "#3b82f6",
+    military: "#ef4444",
+    economic: "#10b981",
+    religious: "#a855f7",
+  };
+  const TYPE_FALLBACK = "#94a3b8";
+  const REL_COLORS = {
+    hostile: "#ef4444",
+    cooperative: "#22c55e",
+    neutral: "#64748b",
+  };
+
+  let networkInstance = null;
+  let networkLoaded = false;
+  const networkEl = document.getElementById("networkGraph");
+  const networkEmpty = document.getElementById("networkEmpty");
+  const netDimension = document.getElementById("netDimension");
+
+  function nodeColor(node) {
+    const dims = node.dimensions || [];
+    if (dims.length) return DIM_COLORS[dims[0]] || TYPE_FALLBACK;
+    return TYPE_FALLBACK;
+  }
+
+  function buildNetwork(data) {
+    const dimFilter = netDimension.value;
+    let nodes = data.nodes || [];
+    if (dimFilter) {
+      nodes = nodes.filter((n) => (n.dimensions || []).includes(dimFilter));
+    }
+    const keep = new Set(nodes.map((n) => n.id));
+    const edges = (data.edges || []).filter(
+      (e) => keep.has(e.source) && keep.has(e.target)
+    );
+
+    if (!nodes.length) {
+      networkEmpty.style.display = "";
+      networkEl.style.display = "none";
+      if (networkInstance) networkInstance.setData({ nodes: [], edges: [] });
+      return;
+    }
+    networkEmpty.style.display = "none";
+    networkEl.style.display = "";
+
+    const maxInf = Math.max(...nodes.map((n) => n.influence || 0), 1);
+    const visNodes = nodes.map((n) => {
+      const size = 10 + 34 * ((n.influence || 0) / maxInf);
+      const dims = (n.dimensions || []).join(", ") || "—";
+      return {
+        id: n.id,
+        label: n.label,
+        value: n.influence || 1,
+        size: size,
+        color: { background: nodeColor(n), border: "#0b1220" },
+        font: { color: "#e5e7eb", size: 13, face: "Inter" },
+        title:
+          n.label +
+          " (" + n.type + ")\nDimensions: " + dims +
+          "\nInfluence: " + (n.influence || 0) +
+          " | Mentions: " + n.mentions +
+          " | Connections: " + n.degree,
+      };
+    });
+
+    const visEdges = edges.map((e) => ({
+      from: e.source,
+      to: e.target,
+      arrows: "to",
+      width: Math.min(1 + e.weight, 8),
+      color: { color: REL_COLORS[e.class] || REL_COLORS.neutral, opacity: 0.7 },
+      label: e.type,
+      font: { color: "#94a3b8", size: 10, strokeWidth: 0, align: "middle" },
+      title: e.snippet || e.type,
+      smooth: { type: "continuous" },
+    }));
+
+    const payload = { nodes: visNodes, edges: visEdges };
+
+    if (!networkInstance) {
+      networkInstance = new vis.Network(networkEl, payload, {
+        physics: {
+          stabilization: { iterations: 150 },
+          barnesHut: { gravitationalConstant: -8000, springLength: 140 },
+        },
+        interaction: { hover: true, tooltipDelay: 120 },
+        nodes: { shape: "dot", borderWidth: 2 },
+        edges: { selectionWidth: 2 },
+      });
+    } else {
+      networkInstance.setData(payload);
+    }
+  }
+
+  async function loadNetwork() {
+    try {
+      const res = await fetch("/api/network?hours=336&limit=120");
+      const data = await res.json();
+      networkLoaded = true;
+      buildNetwork(data);
+    } catch (err) {
+      console.error("Network load failed:", err);
+    }
+  }
+
+  netDimension.addEventListener("change", loadNetwork);
+  document.getElementById("netRefresh").addEventListener("click", loadNetwork);
+
+  // ---- View tabs (Map / Network) ----
+  const viewTabs = document.querySelectorAll(".view-tab");
+  const netControls = document.getElementById("netControls");
+  viewTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const view = tab.dataset.view;
+      viewTabs.forEach((t) => t.classList.toggle("active", t === tab));
+      document.querySelectorAll(".view-pane").forEach((p) => {
+        p.classList.toggle("active", p.id === view);
+      });
+      netControls.style.display = view === "network" ? "" : "none";
+      if (view === "map" && map) {
+        setTimeout(() => map.invalidateSize(), 50);
+      }
+      if (view === "network") {
+        loadNetwork();
+      }
+    });
+  });
+
+  // ---- Ask the Analyst ----
+  const analystForm = document.getElementById("analystForm");
+  const analystInput = document.getElementById("analystInput");
+  const analystSend = document.getElementById("analystSend");
+
+  function addAnalystEntry(question, answer, pending) {
+    clearEmpty(briefingContent);
+    const el = document.createElement("div");
+    el.className = "briefing-entry analyst-entry";
+    el.innerHTML =
+      '<div class="analyst-q">Q: ' + esc(question) + "</div>" +
+      '<div class="analyst-a">' +
+        (pending ? '<span class="analyst-thinking">Analyzing…</span>' : esc(answer)) +
+      "</div>";
+    briefingContent.prepend(el);
+    return el;
+  }
+
+  analystForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const q = analystInput.value.trim();
+    if (!q) return;
+    analystInput.value = "";
+    analystSend.disabled = true;
+    const el = addAnalystEntry(q, "", true);
+    try {
+      const res = await fetch("/api/analyst", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, hours: 336 }),
+      });
+      const data = await res.json();
+      el.querySelector(".analyst-a").textContent = data.answer || "(no answer)";
+    } catch (err) {
+      el.querySelector(".analyst-a").textContent = "Request failed.";
+    } finally {
+      analystSend.disabled = false;
+    }
+  });
+
   // ---- WebSocket ----
   function connect() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -359,6 +528,12 @@
 
         case "stats":
           if (msg.stats) updateStats(msg.stats);
+          break;
+
+        case "graph_update":
+          if (document.getElementById("network").classList.contains("active")) {
+            loadNetwork();
+          }
           break;
       }
     });

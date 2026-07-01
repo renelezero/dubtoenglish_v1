@@ -140,11 +140,138 @@ main {
   min-width: 0;
 }
 
+/* ---- View tabs (Map / Network) ---- */
+.view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.view-tab {
+  background: transparent;
+  color: var(--text-2);
+  border: 1px solid transparent;
+  padding: 0.25rem 0.7rem;
+  border-radius: var(--radius);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+.view-tab:hover { color: var(--text-1); }
+
+.view-tab.active {
+  background: var(--blue-dim);
+  color: var(--blue);
+  border-color: rgba(59,130,246,0.35);
+}
+
+.net-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.68rem;
+  color: var(--text-2);
+}
+
+.net-controls select {
+  background: var(--bg-2);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.68rem;
+  margin-left: 0.3rem;
+}
+
+.net-refresh {
+  background: var(--bg-3);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+.net-refresh:hover { background: var(--blue-dim); color: var(--blue); }
+
+.view-pane {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.view-pane.active { display: block; }
+
 #map {
   width: 100%;
   height: 100%;
   background: var(--bg-0);
 }
+
+#networkGraph {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 40%, #0b1220 0%, var(--bg-0) 80%);
+}
+
+.net-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 340px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.net-legend {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  background: rgba(7,9,13,0.8);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.62rem;
+  color: var(--text-2);
+  max-width: calc(100% - 16px);
+}
+
+.net-legend-title {
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-left: 0.4rem;
+}
+.net-legend-title:first-child { margin-left: 0; }
+
+.net-legend .lg {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block; margin-left: 0.2rem;
+}
+.lg-political { background: #3b82f6; }
+.lg-military { background: #ef4444; }
+.lg-economic { background: #10b981; }
+.lg-religious { background: #a855f7; }
+
+.net-legend .lg-line {
+  width: 14px; height: 3px; border-radius: 2px;
+  display: inline-block; margin-left: 0.2rem;
+}
+.lg-hostile { background: #ef4444; }
+.lg-cooperative { background: #22c55e; }
 
 .leaflet-popup-content-wrapper {
   background: var(--bg-2) !important;
@@ -439,6 +566,61 @@ main {
 
 /* ---- Scrollbars ---- */
 .feed-scroll::-webkit-scrollbar,
+/* ---- Ask the Analyst ---- */
+.analyst-form {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-1);
+  flex-shrink: 0;
+}
+
+.analyst-form input {
+  flex: 1;
+  background: var(--bg-2);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+.analyst-form input:focus {
+  outline: none;
+  border-color: rgba(59,130,246,0.5);
+}
+
+.analyst-form button {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.analyst-form button:disabled { opacity: 0.5; cursor: default; }
+
+.analyst-entry {
+  border-left: 2px solid var(--blue);
+  padding-left: 0.5rem;
+}
+.analyst-q {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--blue);
+  margin-bottom: 0.2rem;
+}
+.analyst-a {
+  font-size: 0.75rem;
+  color: var(--text-1);
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+.analyst-thinking { color: var(--text-2); font-style: italic; }
+
 .briefing-scroll::-webkit-scrollbar { width: 3px; }
 .feed-scroll::-webkit-scrollbar-track,
 .briefing-scroll::-webkit-scrollbar-track { background: transparent; }
