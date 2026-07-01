@@ -9,7 +9,7 @@ from collections import deque
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from openai import AsyncOpenAI
@@ -23,6 +23,9 @@ from store import (
     get_recent_headlines, add_summary, query_summaries, get_running_log,
 )
 from summarize import generate_incremental_update, generate_summary
+import graph
+from extract import extract_graph_batch
+from analyst import answer_question
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -34,6 +37,9 @@ FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 RSS_INTERVAL = 60
 GDELT_INTERVAL = 900
 DIGEST_INTERVAL = 15
+GRAPH_INTERVAL = 30
+GRAPH_BATCH = 20
+GRAPH_WINDOW_HOURS = 6.0
 
 _oai: AsyncOpenAI | None = None
 
@@ -313,6 +319,49 @@ async def run_briefing_loop():
         await asyncio.sleep(max(0, 25 - elapsed))
 
 
+# ---- Graph loop: fold new events into the actor knowledge graph ----
+
+async def run_graph_loop():
+    await asyncio.sleep(35)
+
+    while True:
+        t0 = time.monotonic()
+        try:
+            recent = await asyncio.to_thread(query_events, GRAPH_WINDOW_HOURS)
+            pending = await asyncio.to_thread(graph.filter_unprocessed, recent)
+
+            if pending:
+                batch = pending[:GRAPH_BATCH]
+                logger.info("Graph: extracting actors/relations from %d events", len(batch))
+                extractions = await extract_graph_batch(batch)
+
+                total_rel = 0
+                by_id = {e["id"]: e for e in batch}
+                for eid, extraction in extractions.items():
+                    ev = by_id.get(eid)
+                    sev = ev.get("severity", "low") if ev else "low"
+                    total_rel += await asyncio.to_thread(
+                        graph.ingest_extraction, eid, extraction, sev
+                    )
+
+                # Mark any batch events the model omitted so we don't loop on them.
+                for eid in by_id:
+                    if eid not in extractions:
+                        await asyncio.to_thread(graph.mark_processed, eid)
+
+                gstats = await asyncio.to_thread(graph.get_graph_stats)
+                logger.info(
+                    "Graph: +%d relations | %d actors / %d relations total",
+                    total_rel, gstats["actors"], gstats["relations"],
+                )
+                await hub.broadcast({"type": "graph_update", "stats": gstats})
+        except Exception:
+            logger.exception("Graph loop error")
+
+        elapsed = time.monotonic() - t0
+        await asyncio.sleep(max(0, GRAPH_INTERVAL - elapsed))
+
+
 # ---- Lifecycle ----
 
 @asynccontextmanager
@@ -322,10 +371,11 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(run_gdelt_collector()),
         asyncio.create_task(run_digest_loop()),
         asyncio.create_task(run_briefing_loop()),
+        asyncio.create_task(run_graph_loop()),
     ]
     for s in LIVE_STREAMS:
         tasks.append(asyncio.create_task(run_stream_collector(s)))
-    logger.info("Started collectors + digest + briefing (%d live streams)", len(LIVE_STREAMS))
+    logger.info("Started collectors + digest + briefing + graph (%d live streams)", len(LIVE_STREAMS))
     yield
     for t in tasks:
         t.cancel()
@@ -401,6 +451,45 @@ async def get_summary_endpoint(window: str = Query(default="1h")):
 async def get_sources():
     from scraper import RSS_FEEDS
     return {"sources": RSS_FEEDS}
+
+
+# ---- Actor knowledge graph ----
+
+@app.get("/api/network")
+async def get_network_endpoint(
+    hours: float = Query(default=168.0),
+    min_weight: int = Query(default=1),
+    limit: int = Query(default=120),
+):
+    net = await asyncio.to_thread(graph.get_network, hours, min_weight, limit)
+    return net
+
+
+@app.get("/api/actors")
+async def get_actors_endpoint(
+    hours: float = Query(default=168.0),
+    limit: int = Query(default=25),
+    dimension: str | None = Query(default=None),
+):
+    actors = await asyncio.to_thread(graph.get_top_actors, hours, limit, dimension)
+    return {"actors": actors, "count": len(actors)}
+
+
+@app.get("/api/graph_stats")
+async def get_graph_stats_endpoint():
+    return await asyncio.to_thread(graph.get_graph_stats)
+
+
+@app.post("/api/analyst")
+async def analyst_endpoint(payload: dict = Body(...)):
+    question = (payload.get("question") or "").strip()
+    if not question:
+        return {"answer": "Please provide a question.", "question": ""}
+    hours = float(payload.get("hours", 168.0))
+    context = await asyncio.to_thread(graph.describe_graph_context, hours, 25)
+    headlines = await asyncio.to_thread(get_recent_headlines, min(hours, 12.0))
+    answer = await answer_question(question, context, headlines)
+    return {"answer": answer, "question": question}
 
 
 if os.path.isdir(FRONTEND_DIR):
